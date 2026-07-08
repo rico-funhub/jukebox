@@ -501,13 +501,11 @@
 
     <label style="font-size:12px;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.4);text-transform:uppercase;">Key A — Client ID (required)</label>
     <div style="display:flex;gap:8px;margin:0.5rem 0 0.5rem;">
-      <input id="setup-key-input" type="password" placeholder="Paste Key A Client ID" autocomplete="off" spellcheck="false" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
-      <button class="s-btn" onclick="toggleSetupReveal('setup-key-input','setup-reveal-btn')" id="setup-reveal-btn" style="padding:0 16px;">Show</button>
+      <input id="setup-key-input" type="text" inputmode="latin" placeholder="Paste Key A Client ID" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
     </div>
     <label style="font-size:12px;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.4);text-transform:uppercase;">Key B — Client ID (optional)</label>
     <div style="display:flex;gap:8px;margin:0.5rem 0 0.5rem;">
-      <input id="setup-key-b-input" type="password" placeholder="Paste Key B Client ID (optional)" autocomplete="off" spellcheck="false" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
-      <button class="s-btn" onclick="toggleSetupReveal('setup-key-b-input','setup-reveal-b-btn')" id="setup-reveal-b-btn" style="padding:0 16px;">Show</button>
+      <input id="setup-key-b-input" type="text" inputmode="latin" placeholder="Paste Key B Client ID (optional)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
     </div>
     <p id="setup-error" style="font-size:13px;color:#ff6b6b;min-height:18px;margin-bottom:0.5rem;"></p>
     <button class="btn-green" style="width:100%;padding:16px;font-size:17px;" onclick="saveSetupKey()">Save &amp; connect</button>
@@ -687,7 +685,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.3.1</p>
+<p class="version-badge">v1.3.2</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1079,25 +1077,17 @@ async function startAuth() {
 }
 
 // ── FIRST-RUN / FIX-KEYS SETUP ──
-function toggleSetupReveal(inputId, btnId) {
-  const inp = document.getElementById(inputId);
-  const btn = document.getElementById(btnId);
-  if (!inp) return;
-  const showing = inp.type === 'text';
-  inp.type = showing ? 'password' : 'text';
-  if (btn) btn.textContent = showing ? 'Show' : 'Hide';
-}
-
 // Open the setup screen to enter or FIX keys. Prefills whatever's already saved
 // so staff can correct a bad key instead of retyping both.
 function openSetup() {
   const a = document.getElementById('setup-key-input');
   const b = document.getElementById('setup-key-b-input');
-  if (a) { a.value = keyA || ''; a.type = 'password'; }
-  if (b) { b.value = keyB || ''; b.type = 'password'; }
-  const ra = document.getElementById('setup-reveal-btn'); if (ra) ra.textContent = 'Show';
-  const rb = document.getElementById('setup-reveal-b-btn'); if (rb) rb.textContent = 'Show';
+  if (a) a.value = keyA || '';
+  if (b) b.value = keyB || '';
   const err = document.getElementById('setup-error'); if (err) err.textContent = '';
+  // Reset the connect button in case a prior attempt left it disabled/"Connecting…".
+  const btn = document.querySelector('#screen-setup .btn-green');
+  if (btn) { btn.textContent = 'Save & connect'; btn.disabled = false; }
   showScreen('setup');
 }
 
