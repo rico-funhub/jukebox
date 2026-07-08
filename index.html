@@ -393,9 +393,8 @@
       type="text"
       placeholder="Search for a song or artist..."
       autocomplete="off"
-      onkeydown="if(event.key==='Enter') doSearch()"
+      oninput="liveSearch(this.value)"
     />
-    <button class="search-go" onclick="doSearch()">Search</button>
     <button class="search-cancel" onclick="closeSearch()">Cancel</button>
   </div>
   <div class="search-results-wrap">
@@ -625,11 +624,23 @@ function closeSearch() {
   else showScreen('attract');
 }
 
-async function doSearch() {
-  if (!await ensureToken()) return;
-  const q = document.getElementById('search-input').value.trim();
-  if (!q) return;
+let searchTimer = null;
+
+function liveSearch(val) {
+  clearTimeout(searchTimer);
+  if (!val.trim()) {
+    document.getElementById('search-results').innerHTML = '';
+    document.getElementById('search-status').textContent = 'Start typing to search';
+    return;
+  }
   document.getElementById('search-status').textContent = 'Searching...';
+  searchTimer = setTimeout(() => doSearch(val.trim()), 350);
+}
+
+async function doSearch(q) {
+  if (!await ensureToken()) return;
+  if (!q) q = document.getElementById('search-input').value.trim();
+  if (!q) return;
   document.getElementById('search-results').innerHTML = '';
   try {
     const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8`, {
