@@ -700,60 +700,48 @@ async function doSearch(q) {
 async function queueTrack(uri, name, artist, art) {
   if (!await ensureToken()) return;
 
-  // Prevent double-tap queuing
-  const addBtn = event?.currentTarget;
-  if (addBtn) addBtn.disabled = true;
-
   try {
     let did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
 
-    // Find active device if we don't have one
-    if (!did) {
-      const devRes = await fetch('https://api.spotify.com/v1/me/player/devices', {
-        headers: { Authorization: 'Bearer ' + accessToken }
-      });
-      if (devRes.ok) {
-        const devData = await devRes.json();
-        const active = devData.devices?.find(d => d.is_active) || devData.devices?.[0];
-        if (active) { did = active.id; deviceId = did; }
-      }
-    }
-
-    // Queue the track once
-    const url = did
-      ? `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}&device_id=${did}`
-      : `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}`;
-    const qRes = await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } });
-    if (!qRes.ok) throw new Error('Queue failed: ' + qRes.status);
-
-    queuedUris.add(uri);
-
-    // Check if playing — if not, activate device and skip to queued song
+    // Check player state first
     const stateRes = await fetch('https://api.spotify.com/v1/me/player', {
       headers: { Authorization: 'Bearer ' + accessToken }
     });
 
-    let shouldStart = false;
-    if (stateRes.status === 204 || stateRes.status === 404) {
-      shouldStart = true;
-    } else {
-      const state = await stateRes.json();
-      if (!state?.is_playing) shouldStart = true;
-    }
+    const isActive = stateRes.status === 200;
+    const playerState = isActive ? await stateRes.json() : null;
+    const playing = playerState?.is_playing || false;
+    if (!did && playerState?.device?.id) did = playerState.device.id;
 
-    if (shouldStart) {
-      // Play the track directly when nothing is active
-      const playBody = did
-        ? JSON.stringify({ uris: [uri], device_id: did })
-        : JSON.stringify({ uris: [uri] });
-      await fetch('https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : ''), {
+    if (playing) {
+      // Song already playing — just queue it
+      const url = `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}` + (did ? `&device_id=${did}` : '');
+      const qRes = await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } });
+      if (!qRes.ok) throw new Error('Queue failed ' + qRes.status);
+      queuedUris.add(uri);
+    } else {
+      // Nothing playing — play directly
+      if (!did) {
+        const devRes = await fetch('https://api.spotify.com/v1/me/player/devices', {
+          headers: { Authorization: 'Bearer ' + accessToken }
+        });
+        if (devRes.ok) {
+          const devData = await devRes.json();
+          const dev = devData.devices?.find(d => d.is_active) || devData.devices?.[0];
+          if (dev) did = dev.id;
+        }
+      }
+      const playUrl = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
+      const pRes = await fetch(playUrl, {
         method: 'PUT',
         headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: playBody
+        body: JSON.stringify({ uris: [uri] })
       });
+      if (!pRes.ok) throw new Error('Play failed ' + pRes.status);
+      queuedUris.add(uri);
     }
 
-    // Show confirm screen
+    // Show confirm
     document.getElementById('confirm-track').textContent = name;
     document.getElementById('confirm-artist').textContent = artist;
     const img = document.getElementById('confirm-img');
@@ -768,8 +756,8 @@ async function queueTrack(uri, name, artist, art) {
     }, 2500);
 
   } catch(e) {
-    document.getElementById('search-status').textContent = 'Could not add song. Make sure Spotify is open.';
-    if (addBtn) addBtn.disabled = false;
+    console.error(e);
+    document.getElementById('search-status').textContent = 'Could not add song: ' + e.message;
   }
 }
 
