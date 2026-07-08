@@ -234,7 +234,6 @@
 
 
     /* ── ON-SCREEN KEYBOARD ── */
-    .osk-wrap { display: none; }
     #osk-fixed {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -509,7 +508,6 @@
     </div>
     <p id="split-status" class="split-status"></p>
     <ul id="split-results" class="split-results"></ul>
-    <div class="osk-wrap"><div class="osk" id="osk-split"></div></div>
   </div>
 </div>
 
@@ -525,7 +523,6 @@
     <p id="search-status" class="search-status"></p>
     <ul id="search-results" class="search-results"></ul>
   </div>
-  <div class="osk-wrap" style="position:relative;z-index:1;flex-shrink:0;"><div id="osk-main" class="osk"></div></div>
 </div>
 
 
@@ -603,7 +600,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.0.0</p>
+<p class="version-badge">v1.1.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -786,11 +783,15 @@ function showScreen(id) {
   cb.style.display = (credits > 0 && id !== 'auth') ? 'flex' : 'none';
   if (id === 'attract') {
     credits = 0; setLang('en'); updateAttractText();
+    hideOsk();
+    const sp = document.getElementById('split-panel');
+    if (sp) sp.classList.remove('open');
+    const pr = document.getElementById('playing-right');
+    if (pr) pr.style.display = 'flex';
     const ad = document.getElementById('attract-disc');
     if (ad) { ad.classList.remove('fly-out'); ad.classList.add('fly-in'); setTimeout(() => ad.classList.remove('fly-in'), 600); }
     stopAttractBg();
     loadAttractArts();
-    startGamepadCoinPoll();
   } else {
     stopAttractBg();
   }
@@ -933,7 +934,6 @@ async function initPlayer() {
             isPlaying = true;
             showScreen('playing');
             fetchQueue();
-            saveState(t.name, t.artists.map(a=>a.name).join(', '), art);
           }
         }
       } catch(e) {}
@@ -983,7 +983,6 @@ function onState(state) {
   else { img.style.display = 'none'; bg.style.backgroundImage = 'none'; }
   const disc = document.getElementById('disc');
   disc.classList.add('spinning');
-  saveState(track.name, track.artists.map(a=>a.name).join(', '), art);
   if (currentScreen !== 'search') showScreen('playing');
   fetchQueue();
 }
@@ -1076,7 +1075,8 @@ function openSearch() {
   si.value = ''; si.placeholder = t.searchPh;
   document.getElementById('search-results').innerHTML = '';
   document.getElementById('search-status').textContent = '';
-  setTimeout(() => si.focus(), 80);
+  showOsk('search-input');
+  if (!oskEnabled) setTimeout(() => si.focus(), 80);
 }
 
 function closeSearch() { hideOsk(); isPlaying ? showScreen('playing') : showScreen('attract'); }
@@ -1097,7 +1097,7 @@ function openSplit() {
   document.getElementById('split-results').innerHTML = '';
   document.getElementById('split-status').textContent = '';
   showOsk('split-input');
-  setTimeout(() => si.focus(), 80);
+  if (!oskEnabled) setTimeout(() => si.focus(), 80);
 }
 
 function closeSplit() {
@@ -1155,6 +1155,12 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key.toLowerCase() !== coinKey) return;
+  // Never fire coin while staff overlays are open (PIN typing, blacklist typing, etc.)
+  if (document.getElementById('pin-overlay').classList.contains('open')) return;
+  if (document.getElementById('settings-overlay').classList.contains('open')) return;
+  if (document.getElementById('staff-overlay').classList.contains('open')) return;
+  // OSK off = real keyboard in use: let typing into inputs pass through
+  if (!oskEnabled && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   e.preventDefault();
   coinSound();
   credits += creditsPerTap;
@@ -1243,6 +1249,7 @@ function toggleOskSetting() {
   localStorage.setItem('jukebox_osk', oskEnabled ? 'on' : 'off');
   const btn = document.getElementById('osk-toggle-btn');
   if (btn) btn.textContent = oskEnabled ? 'On' : 'Off';
+  applyOskMode();
   if (!oskEnabled) hideOsk();
 }
 
@@ -1292,19 +1299,6 @@ function settingsDisconnect() {
   if (confirm('Disconnect Spotify?')) { sessionStorage.clear(); window.location.href = window.location.pathname; }
 }
 
-// ── SESSION PERSISTENCE ──
-function saveState(name, artist, art) {
-  sessionStorage.setItem('jukebox_state', JSON.stringify({ name, artist, art, t: Date.now() }));
-}
-
-function loadState() {
-  try {
-    const s = JSON.parse(sessionStorage.getItem('jukebox_state') || 'null');
-    if (!s || Date.now() - s.t > 8 * 3600000) { sessionStorage.removeItem('jukebox_state'); return null; }
-    return s;
-  } catch(e) { return null; }
-}
-
 
 
 
@@ -1352,46 +1346,36 @@ function renderBlacklist() {
 
 
 // ── ON-SCREEN KEYBOARD ──
-const OSK_ROWS = [
-  ['1','2','3','4','5','6','7','8','9','0'],
-  ['Q','W','E','R','T','Y','U','I','O','P'],
-  ['A','S','D','F','G','H','J','K','L'],
-  ['Z','X','C','V','B','N','M']
-];
+let oskActiveInput = null;
 
-function buildOsk(containerId, inputId) {
-  const wrap = document.getElementById(containerId);
-  if (!wrap) return;
-  wrap.innerHTML = '';
+function buildOsk() {
+  const r1 = document.getElementById('osk-r1');
+  const r2 = document.getElementById('osk-r2');
+  const r3 = document.getElementById('osk-r3');
+  const r4 = document.getElementById('osk-r4');
+  if (!r1 || !r2 || !r3 || !r4) return;
 
-  // Row 1: numbers
-  const r1 = document.createElement('div'); r1.className = 'osk-row';
+  r1.innerHTML = '';
   ['1','2','3','4','5','6','7','8','9','0'].forEach(k =>
-    r1.appendChild(makeKey(k, '', () => oskType(inputId, k))));
-  wrap.appendChild(r1);
+    r1.appendChild(makeKey(k, '', () => oskType(k))));
 
-  // Row 2: QWERTYUIOP
-  const r2 = document.createElement('div'); r2.className = 'osk-row';
+  r2.innerHTML = '';
   ['Q','W','E','R','T','Y','U','I','O','P'].forEach(k =>
-    r2.appendChild(makeKey(k, '', () => oskType(inputId, k))));
-  wrap.appendChild(r2);
+    r2.appendChild(makeKey(k, '', () => oskType(k))));
 
-  // Row 3: ASDFGHJKL + backspace
-  const r3 = document.createElement('div'); r3.className = 'osk-row';
-
+  r3.innerHTML = '';
+  const spacer = document.createElement('div');
+  spacer.style.cssText = 'flex:0.75;max-width:calc(7.5% - 6px);';
+  r3.appendChild(spacer);
   ['A','S','D','F','G','H','J','K','L'].forEach(k =>
-    r3.appendChild(makeKey(k, '', () => oskType(inputId, k))));
-  r3.appendChild(makeKey('⌫', 'key-del', () => oskDel(inputId)));
-  wrap.appendChild(r3);
+    r3.appendChild(makeKey(k, '', () => oskType(k))));
+  r3.appendChild(makeKey('\u232B', 'key-del', () => oskDel()));
 
-  // Row 4: ZXCVBNM + space + clear
-  const r4 = document.createElement('div'); r4.className = 'osk-row';
-
+  r4.innerHTML = '';
   ['Z','X','C','V','B','N','M'].forEach(k =>
-    r4.appendChild(makeKey(k, '', () => oskType(inputId, k))));
-  r4.appendChild(makeKey('space', 'key-space', () => oskType(inputId, ' ')));
-  r4.appendChild(makeKey('clear', 'key-clear', () => oskClear(inputId)));
-  wrap.appendChild(r4);
+    r4.appendChild(makeKey(k, '', () => oskType(k))));
+  r4.appendChild(makeKey('space', 'key-space', () => oskType(' ')));
+  r4.appendChild(makeKey('clear', 'key-clear', () => oskClear()));
 }
 
 function makeKey(label, cls, fn) {
@@ -1402,6 +1386,27 @@ function makeKey(label, cls, fn) {
   btn.addEventListener('touchstart', e => { e.preventDefault(); fn(); }, { passive: false });
   btn.addEventListener('mousedown', e => { e.preventDefault(); fn(); });
   return btn;
+}
+
+function showOsk(inputId) {
+  oskActiveInput = inputId;
+  if (oskEnabled) document.getElementById('osk-fixed').classList.add('visible');
+}
+
+function hideOsk() {
+  oskActiveInput = null;
+  document.getElementById('osk-fixed').classList.remove('visible');
+}
+
+// Kiosk mode: OSK on = inputs readonly (no native keyboard popup, physical keys reserved for card reader).
+// OSK off = normal inputs, PC keyboard types directly.
+function applyOskMode() {
+  ['search-input', 'split-input'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    if (oskEnabled) inp.setAttribute('readonly', '');
+    else inp.removeAttribute('readonly');
+  });
 }
 
 function oskType(char) {
@@ -1431,6 +1436,8 @@ let attractBgArts = [];
 let attractBgIdx = 0;
 
 async function loadAttractArts() {
+  // Cached: only hit Spotify once per session
+  if (attractBgArts.length) { rotateAttractBg(); return; }
   // Get top songs from revenue
   const rev = getRevenue();
   const allSongs = {};
@@ -1461,6 +1468,7 @@ async function loadAttractArts() {
 
 function rotateAttractBg() {
   if (!attractBgArts.length) return;
+  if (attractBgTimer) { clearTimeout(attractBgTimer); attractBgTimer = null; }
   const bg = document.getElementById('attract-bg');
   if (!bg) return;
   const art = attractBgArts[attractBgIdx % attractBgArts.length];
@@ -1716,6 +1724,16 @@ function startGamepadCoinPoll() {
   }, 50);
 }
 
+let postAuthDone = false;
+function postAuthSetup() {
+  if (postAuthDone) return;
+  postAuthDone = true;
+  startKeepAlive();
+  startGamepadCoinPoll();
+  applyOskMode();
+  loadAttractArts();
+}
+
 function startKeepAlive() {
   setInterval(() => { if (isPlaying) fetchQueue(); }, 8000);
   setInterval(async () => {
@@ -1735,13 +1753,12 @@ async function init() {
   const code = params.get('code'), state = params.get('state');
   if (code && state === sessionStorage.getItem('spotify_state')) {
     window.history.replaceState(null, '', window.location.pathname);
-    if (await exchangeCode(code)) { showScreen('attract'); startKeepAlive(); return; }
+    if (await exchangeCode(code)) { showScreen('attract'); postAuthSetup(); return; }
   }
 
   if (await ensureToken()) {
     showScreen('attract');
-    startKeepAlive();
-    loadAttractArts();
+    postAuthSetup();
 
     // Restore happens after SDK is ready — see initPlayer() ready callback
   } else {
@@ -1759,6 +1776,7 @@ async function safeInit() {
 
 safeInit();
 buildOsk();
+applyOskMode();
 </script>
 </body>
 </html>
