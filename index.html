@@ -5,185 +5,232 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FUNHUB Jukebox</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; background: #0a0a0a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #080808; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
 
-    .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; }
+    /* ── SCREENS ── */
+    .screen { position: fixed; inset: 0; display: none; }
     .screen.active { display: flex; }
 
-    /* AUTH */
-    #screen-auth { gap: 2rem; text-align: center; }
-    #screen-auth p { font-size: 16px; color: #666; }
-    .funhub-logo { width: 180px; object-fit: contain; }
-    .btn-green { background: #1DB954; color: #fff; border: none; border-radius: 32px; padding: 18px 52px; font-size: 18px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    /* ── AUTH ── */
+    #screen-auth {
+      flex-direction: column; align-items: center; justify-content: center; gap: 2rem; text-align: center;
+    }
+    .auth-logo { width: 220px; object-fit: contain; }
+    .auth-sub { font-size: 17px; color: #555; }
+    .btn-green { background: #1DB954; color: #fff; border: none; border-radius: 40px; padding: 20px 60px; font-size: 20px; font-weight: 800; cursor: pointer; font-family: inherit; letter-spacing: 0.02em; }
     .btn-green:hover { background: #1ed760; }
 
-    /* ATTRACT */
-    #screen-attract { gap: 2.5rem; text-align: center; background: #0a0a0a; }
-    .attract-tap { font-size: clamp(52px, 10vw, 100px); font-weight: 900; letter-spacing: 0.04em; color: #fff; animation: zoom 2s ease-in-out infinite; line-height: 1; display: inline-block; }
+    /* ── ATTRACT ── */
+    #screen-attract {
+      flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center; background: #080808;
+    }
+    .attract-logo { width: 200px; object-fit: contain; margin-bottom: 1rem; }
+    .attract-tap {
+      font-size: clamp(60px, 11vw, 110px); font-weight: 900; letter-spacing: 0.03em;
+      color: #fff; line-height: 1; display: inline-block;
+      animation: zoom 2s ease-in-out infinite;
+    }
     .attract-tap.tap-to-play { color: #1DB954; }
-    @keyframes zoom { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-    .attract-credits { font-size: clamp(13px, 1.8vw, 18px); color: #D4AF37; font-weight: 700; letter-spacing: 0.1em; margin-top: -1rem; }
-    .attract-sub { font-size: clamp(15px, 2.4vw, 22px); color: #555; letter-spacing: 0.14em; text-transform: uppercase; }
+    @keyframes zoom { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+    .attract-credits { font-size: clamp(18px, 2.5vw, 26px); font-weight: 800; color: #D4AF37; letter-spacing: 0.08em; }
+    .attract-sub { font-size: clamp(14px, 2vw, 20px); color: #444; letter-spacing: 0.16em; text-transform: uppercase; }
 
-    /* NOW PLAYING */
-    #screen-playing { flex-direction: row; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-    .playing-bg { position: absolute; inset: 0; background-size: cover; background-position: center; filter: blur(48px) brightness(0.2); transform: scale(1.15); z-index: 0; }
-    .playing-left { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 2rem; gap: 1.25rem; height: 100vh; border-right: 1px solid rgba(255,255,255,0.06); position: relative; z-index: 1; }
-    .playing-logo { width: 140px; opacity: 0.85; object-fit: contain; }
-    .now-badge { font-size: 12px; font-weight: 700; letter-spacing: 0.2em; color: #1DB954; text-transform: uppercase; }
-    .disc-wrapper { position: relative; width: min(300px, 35vw); height: min(300px, 35vw); }
-    .disc { width: 100%; height: 100%; border-radius: 50%; background: #111; border: 4px solid rgba(255,255,255,0.08); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    /* ── NOW PLAYING ── */
+    #screen-playing { flex-direction: row; position: relative; overflow: hidden; }
+
+    .playing-bg {
+      position: absolute; inset: 0; background-size: cover; background-position: center;
+      filter: blur(60px) brightness(0.18); transform: scale(1.2); z-index: 0;
+    }
+
+    /* LEFT — disc */
+    .playing-left {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 2rem; gap: 1.2rem; height: 100vh;
+      border-right: 1px solid rgba(255,255,255,0.07);
+      position: relative; z-index: 1;
+    }
+    .playing-logo { width: 130px; object-fit: contain; opacity: 0.9; }
+    .now-badge { font-size: 11px; font-weight: 800; letter-spacing: 0.25em; color: #1DB954; text-transform: uppercase; }
+
+    .disc-wrapper { width: min(340px, 40vw); height: min(340px, 40vw); position: relative; }
+    .disc {
+      width: 100%; height: 100%; border-radius: 50%;
+      background: #111; border: 4px solid rgba(255,255,255,0.08);
+      position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
     .disc.spinning { animation: spin 5s linear infinite; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     .disc img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-    .disc-grooves { position: absolute; inset: 0; border-radius: 50%; background: repeating-radial-gradient(circle at center, transparent 0px, transparent 9px, rgba(255,255,255,0.04) 9px, rgba(255,255,255,0.04) 10px); }
-    .disc-center { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #0a0a0a; border: 2px solid rgba(255,255,255,0.2); z-index: 3; }
-    .playing-track { font-size: clamp(22px, 3.5vw, 38px); font-weight: 800; color: #fff; text-align: center; line-height: 1.2; max-width: 360px; }
-    .playing-artist { font-size: clamp(15px, 2.2vw, 22px); color: rgba(255,255,255,0.55); text-align: center; }
-    .tap-add { font-size: clamp(14px, 1.8vw, 20px); font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: center; animation: zoom 2.5s ease-in-out infinite; margin-top: 1rem; display: inline-block; }
-    @keyframes fadepulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .disc-grooves {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: repeating-radial-gradient(circle at center, transparent 0px, transparent 10px, rgba(255,255,255,0.035) 10px, rgba(255,255,255,0.035) 11px);
+    }
+    .disc-center { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #080808; border: 2px solid rgba(255,255,255,0.2); z-index: 3; }
 
-    /* QUEUE */
-    .playing-right { width: 50%; height: 100vh; display: flex; flex-direction: column; padding: 2.5rem 1.75rem; overflow-y: auto; position: relative; z-index: 1; }
-    .queue-logo { width: 110px; opacity: 0.5; object-fit: contain; margin-bottom: 1.5rem; }
-    .queue-heading { font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 1rem; }
+    .playing-track { font-size: clamp(24px, 3.5vw, 40px); font-weight: 900; color: #fff; text-align: center; line-height: 1.15; max-width: 380px; }
+    .playing-artist { font-size: clamp(15px, 2vw, 22px); color: rgba(255,255,255,0.5); text-align: center; }
+    .tap-add {
+      font-size: clamp(16px, 2vw, 22px); font-weight: 800; letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.75); text-transform: uppercase; text-align: center;
+      animation: zoom 2.5s ease-in-out infinite; display: inline-block; margin-top: 0.5rem;
+    }
+
+    /* RIGHT — queue / split search */
+    .playing-right {
+      width: 50%; height: 100vh; display: flex; flex-direction: column;
+      padding: 2.5rem 2rem; position: relative; z-index: 1; overflow-y: auto;
+    }
+    .queue-heading { font-size: 11px; font-weight: 800; letter-spacing: 0.22em; color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 1.25rem; }
     .queue-list { list-style: none; }
-    .queue-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .queue-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
     .queue-item:last-child { border-bottom: none; }
-    .queue-num { font-size: 12px; color: rgba(255,255,255,0.15); width: 16px; flex-shrink: 0; text-align: center; }
-    .queue-thumb { width: 44px; height: 44px; border-radius: 4px; background: rgba(255,255,255,0.05); flex-shrink: 0; overflow: hidden; }
+    .queue-num { font-size: 13px; color: rgba(255,255,255,0.15); width: 20px; flex-shrink: 0; text-align: center; }
+    .queue-thumb { width: 52px; height: 52px; border-radius: 6px; background: rgba(255,255,255,0.06); flex-shrink: 0; overflow: hidden; }
     .queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
     .queue-info { overflow: hidden; flex: 1; }
-    .queue-track { font-size: 14px; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .queue-artist { font-size: 12px; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .queue-empty { font-size: 13px; color: rgba(255,255,255,0.15); padding: 0.5rem 0; }
+    .queue-track { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-artist { font-size: 13px; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .queue-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0.75rem; padding: 3rem 1rem; text-align: center; }
+    .queue-empty-state p { font-size: 16px; color: rgba(255,255,255,0.2); line-height: 1.5; }
 
-    /* SPLIT SEARCH */
-    .split-panel { width: 50%; height: 100vh; display: none; flex-direction: column; position: relative; z-index: 1; border-left: 1px solid rgba(255,255,255,0.06); }
+    /* SPLIT SEARCH PANEL */
+    .split-panel {
+      width: 50%; height: 100vh; display: none; flex-direction: column;
+      position: relative; z-index: 1; border-left: 1px solid rgba(255,255,255,0.07);
+    }
     .split-panel.open { display: flex; }
-    .split-top { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .split-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px 16px; font-size: 17px; color: #fff; font-family: inherit; outline: none; }
+    .split-top { padding: 1.75rem 2rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .split-input {
+      width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px; padding: 15px 18px; font-size: 18px; color: #fff;
+      font-family: inherit; outline: none;
+    }
     .split-input:focus { border-color: #1DB954; }
     .split-input::placeholder { color: rgba(255,255,255,0.2); }
-    .split-results { flex: 1; overflow-y: auto; list-style: none; }
-    .split-result { display: flex; align-items: center; gap: 12px; padding: 12px 1.5rem; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
-    .split-result:hover { background: rgba(255,255,255,0.05); }
-    .split-thumb { width: 46px; height: 46px; border-radius: 4px; background: rgba(255,255,255,0.06); flex-shrink: 0; overflow: hidden; }
+    .split-results { flex: 1; overflow-y: auto; list-style: none; padding: 0.5rem 0; }
+    .split-result { display: flex; align-items: center; gap: 14px; padding: 13px 2rem; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .split-result:last-child { border-bottom: none; }
+    .split-result:hover, .split-result:active { background: rgba(255,255,255,0.05); }
+    .split-thumb { width: 52px; height: 52px; border-radius: 6px; background: rgba(255,255,255,0.06); flex-shrink: 0; overflow: hidden; }
     .split-thumb img { width: 100%; height: 100%; object-fit: cover; }
     .split-info { flex: 1; overflow: hidden; }
-    .split-track { font-size: 15px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .split-artist { font-size: 12px; color: rgba(255,255,255,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .split-play-btn { width: 36px; height: 36px; border-radius: 50%; background: #1DB954; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .split-status { font-size: 13px; color: rgba(255,255,255,0.25); text-align: center; padding: 1.5rem; }
+    .split-track { font-size: 16px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .split-artist { font-size: 13px; color: rgba(255,255,255,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .split-play-btn { width: 42px; height: 42px; border-radius: 50%; background: #1DB954; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .split-play-btn:active { transform: scale(0.9); }
+    .split-status { font-size: 15px; color: rgba(255,255,255,0.2); text-align: center; padding: 2rem; }
 
-    /* SEARCH */
-    #screen-search { flex-direction: column; background: #0a0a0a; }
-    .search-top { width: 100%; padding: 2rem 3rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 1.25rem; background: #0a0a0a; }
-    .search-input { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 18px 22px; font-size: 22px; color: #fff; font-family: inherit; outline: none; }
+    /* ── SEARCH SCREEN ── */
+    #screen-search { flex-direction: column; background: #080808; }
+    .search-top {
+      width: 100%; padding: 1.75rem 2.5rem; border-bottom: 1px solid rgba(255,255,255,0.07);
+      display: flex; align-items: center; gap: 1.5rem; flex-shrink: 0;
+    }
+    .search-logo { height: 36px; object-fit: contain; opacity: 0.85; flex-shrink: 0; }
+    .search-input {
+      flex: 1; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px; padding: 18px 22px; font-size: 22px; color: #fff;
+      font-family: inherit; outline: none;
+    }
     .search-input:focus { border-color: #1DB954; }
     .search-input::placeholder { color: rgba(255,255,255,0.2); }
-    .search-cancel { background: none; color: rgba(255,255,255,0.35); border: none; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; padding: 16px 4px; white-space: nowrap; }
+    .search-cancel { background: none; color: rgba(255,255,255,0.4); border: none; font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit; padding: 10px; white-space: nowrap; flex-shrink: 0; }
     .search-cancel:hover { color: #fff; }
-    .search-results-wrap { flex: 1; width: 100%; overflow-y: auto; padding: 0.5rem 3rem; background: #0a0a0a; }
-    .search-results { list-style: none; padding: 0.5rem 0; }
-    .search-result { display: flex; align-items: center; gap: 16px; padding: 16px 14px; border-radius: 10px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .search-results-wrap { flex: 1; width: 100%; overflow-y: auto; padding: 0.75rem 2.5rem; }
+    .search-results { list-style: none; }
+    .search-result { display: flex; align-items: center; gap: 18px; padding: 16px 12px; border-radius: 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .search-result:last-child { border-bottom: none; }
-    .search-result:hover { background: rgba(255,255,255,0.06); }
-    .search-thumb { width: 60px; height: 60px; border-radius: 6px; background: rgba(255,255,255,0.06); flex-shrink: 0; overflow: hidden; }
+    .search-result:hover, .search-result:active { background: rgba(255,255,255,0.06); }
+    .search-thumb { width: 80px; height: 80px; border-radius: 8px; background: rgba(255,255,255,0.06); flex-shrink: 0; overflow: hidden; }
     .search-thumb img { width: 100%; height: 100%; object-fit: cover; }
     .search-info { flex: 1; overflow: hidden; }
-    .search-track { font-size: 18px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .search-artist { font-size: 14px; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
-    .search-play-btn { width: 42px; height: 42px; border-radius: 50%; background: #1DB954; border: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
-    .search-status { font-size: 14px; color: rgba(255,255,255,0.25); padding: 2rem 0; text-align: center; }
+    .search-track { font-size: 20px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-artist { font-size: 15px; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+    .search-play-btn { width: 50px; height: 50px; border-radius: 50%; background: #1DB954; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .search-play-btn:active { transform: scale(0.9); }
+    .search-status { font-size: 16px; color: rgba(255,255,255,0.25); padding: 3rem 0; text-align: center; }
 
-
-    /* ── SETTINGS ── */
-    .settings-tap-zone {
-      position: fixed; top: 0; left: 50%; transform: translateX(-50%);
-      width: 200px; height: 60px; z-index: 200; cursor: default;
+    /* ── CREDITS BADGE ── */
+    .credits-badge {
+      position: fixed; bottom: 1.5rem; right: 1.5rem; display: none;
+      align-items: center; gap: 10px;
+      background: rgba(212,175,55,0.12); border: 1.5px solid rgba(212,175,55,0.4);
+      border-radius: 40px; padding: 12px 24px;
+      font-size: 18px; font-weight: 800; color: #D4AF37; letter-spacing: 0.06em; z-index: 100;
     }
-    .settings-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-      display: none; align-items: center; justify-content: center;
-      z-index: 300; flex-direction: column; gap: 1.5rem;
-    }
-    .settings-overlay.open { display: flex; }
-    .settings-box {
-      background: #141414; border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 20px; padding: 2.5rem; width: 380px; max-width: 90vw;
-    }
-    .settings-title {
-      font-size: 13px; font-weight: 700; letter-spacing: 0.2em;
-      color: rgba(255,255,255,0.4); text-transform: uppercase;
-      margin-bottom: 2rem; text-align: center;
-    }
-    .settings-logo { width: 100px; opacity: 0.7; object-fit: contain; display: block; margin: 0 auto 1.5rem; }
-    .settings-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .settings-row:last-child { border-bottom: none; }
-    .settings-label { font-size: 15px; color: rgba(255,255,255,0.8); }
-    .settings-label small { display: block; font-size: 12px; color: rgba(255,255,255,0.3); margin-top: 2px; }
-    .settings-btn {
-      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 20px; padding: 8px 18px; font-size: 13px; font-weight: 600;
-      color: #fff; cursor: pointer; font-family: inherit; white-space: nowrap;
-    }
-    .settings-btn.danger { background: rgba(255,60,60,0.15); border-color: rgba(255,60,60,0.3); color: #ff6b6b; }
-    .settings-btn:hover { background: rgba(255,255,255,0.15); }
-    .settings-btn.danger:hover { background: rgba(255,60,60,0.25); }
-    .settings-close {
-      background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 24px;
-      padding: 10px 32px; font-size: 14px; color: rgba(255,255,255,0.5);
-      cursor: pointer; font-family: inherit;
-    }
-    .settings-close:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
-    .pin-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.9);
-      display: none; align-items: center; justify-content: center;
-      z-index: 400; flex-direction: column; gap: 1.5rem;
-    }
-    .pin-overlay.open { display: flex; }
-    .pin-box { background: #141414; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 2.5rem; width: 320px; text-align: center; }
-    .pin-title { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 1.5rem; }
-    .pin-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; font-size: 28px; font-weight: 700; color: #fff; font-family: inherit; outline: none; text-align: center; letter-spacing: 0.3em; margin-bottom: 1rem; }
-    .pin-input:focus { border-color: #1DB954; }
-    .pin-error { font-size: 13px; color: #ff6b6b; min-height: 20px; }
-    .pin-cancel { background: none; border: none; color: rgba(255,255,255,0.3); font-size: 14px; cursor: pointer; font-family: inherit; margin-top: 0.5rem; }
-
-    /* CREDITS */
-    .credits-badge { position: fixed; bottom: 1.5rem; right: 1.5rem; display: none; align-items: center; gap: 10px; background: rgba(212,175,55,0.12); border: 1.5px solid rgba(212,175,55,0.35); border-radius: 32px; padding: 12px 22px; font-size: 18px; font-weight: 800; color: #D4AF37; letter-spacing: 0.06em; z-index: 100; }
     .credits-dot { width: 9px; height: 9px; border-radius: 50%; background: #D4AF37; }
 
-    /* LANG */
-    .lang-switcher { position: fixed; bottom: 1.5rem; left: 1.5rem; display: flex; gap: 6px; z-index: 100; }
-    .lang-btn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; width: 44px; height: 44px; font-size: 22px; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; opacity: 0.45; transition: all 0.15s; }
-    .lang-btn.active { opacity: 1; border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.12); }
+    /* ── FLAGS ── */
+    .lang-switcher { position: fixed; bottom: 1.5rem; left: 1.5rem; display: flex; gap: 8px; z-index: 100; }
+    .lang-btn {
+      width: 48px; height: 48px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06); font-size: 24px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; opacity: 0.4; transition: all 0.15s;
+    }
+    .lang-btn.active { opacity: 1; border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.1); }
+    .lang-btn:hover { opacity: 0.8; }
 
-    /* AUDIO */
-    .audio-badge { position: fixed; top: 1.25rem; left: 1.5rem; font-size: 11px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; }
+    /* ── AUDIO BADGE ── */
+    .audio-badge { position: fixed; top: 1.25rem; left: 1.5rem; font-size: 12px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; }
+
+    /* ── SETTINGS TAP ZONE ── */
+    .settings-tap-zone { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 220px; height: 70px; z-index: 200; }
+
+    /* ── PIN OVERLAY ── */
+    .pin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none; align-items: center; justify-content: center; z-index: 300; }
+    .pin-overlay.open { display: flex; }
+    .pin-box { background: #141414; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 2.5rem; width: 340px; text-align: center; }
+    .pin-logo { width: 120px; object-fit: contain; margin: 0 auto 1.5rem; display: block; }
+    .pin-title { font-size: 12px; font-weight: 700; letter-spacing: 0.22em; color: rgba(255,255,255,0.35); text-transform: uppercase; margin-bottom: 1.25rem; }
+    .pin-input { width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 18px; font-size: 32px; font-weight: 800; color: #fff; font-family: inherit; outline: none; text-align: center; letter-spacing: 0.4em; margin-bottom: 0.75rem; }
+    .pin-input:focus { border-color: #1DB954; }
+    .pin-error { font-size: 13px; color: #ff6b6b; min-height: 20px; margin-bottom: 0.75rem; }
+    .pin-cancel { background: none; border: none; color: rgba(255,255,255,0.3); font-size: 15px; cursor: pointer; font-family: inherit; }
+
+    /* ── SETTINGS OVERLAY ── */
+    .settings-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 300; flex-direction: column; gap: 1.25rem; }
+    .settings-overlay.open { display: flex; }
+    .settings-box { background: #141414; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 2.5rem; width: 420px; max-width: 92vw; }
+    .settings-logo { width: 120px; object-fit: contain; margin: 0 auto 1.5rem; display: block; opacity: 0.9; }
+    .settings-title { font-size: 11px; font-weight: 800; letter-spacing: 0.22em; color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 1.75rem; text-align: center; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 0; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 1rem; }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-label { font-size: 15px; color: rgba(255,255,255,0.8); flex: 1; }
+    .settings-label small { display: block; font-size: 12px; color: rgba(255,255,255,0.3); margin-top: 3px; }
+    .s-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 24px; padding: 9px 20px; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .s-btn.danger { background: rgba(255,60,60,0.12); border-color: rgba(255,60,60,0.25); color: #ff7070; }
+    .s-btn:hover { background: rgba(255,255,255,0.14); }
+    .s-btn.danger:hover { background: rgba(255,60,60,0.22); }
+    .s-stepper { display: flex; align-items: center; gap: 12px; }
+    .s-stepper button { width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; }
+    .s-stepper span { font-size: 20px; font-weight: 800; min-width: 28px; text-align: center; }
+    .settings-close { background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 30px; padding: 12px 36px; font-size: 15px; color: rgba(255,255,255,0.45); cursor: pointer; font-family: inherit; }
+    .settings-close:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
   </style>
 </head>
 <body>
 
+<!-- AUTH -->
 <div id="screen-auth" class="screen active">
-  <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="funhub-logo" alt="FUNHUB" />
-  <p>Connect your Spotify account to start</p>
+  <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="auth-logo" alt="FUNHUB" />
+  <p class="auth-sub">Connect Spotify to start the jukebox</p>
   <button class="btn-green" onclick="startAuth()">Connect Spotify</button>
 </div>
 
+<!-- ATTRACT -->
 <div id="screen-attract" class="screen">
-  <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="funhub-logo" alt="FUNHUB" />
+  <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="attract-logo" alt="FUNHUB" />
   <p class="attract-tap" id="attract-tap">TAP YOUR CARD</p>
-  <p class="attract-credits" id="attract-credits">24 Credits</p>
-  <p class="attract-sub" id="attract-sub">to request a song</p>
+  <p class="attract-credits" id="attract-credits">1 Credit</p>
+  <p class="attract-sub" id="attract-sub">to pick a song!</p>
 </div>
 
+<!-- NOW PLAYING -->
 <div id="screen-playing" class="screen">
   <div class="playing-bg" id="playing-bg"></div>
+
   <div class="playing-left">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="playing-logo" alt="FUNHUB" />
     <p class="now-badge" id="now-badge">Now playing</p>
@@ -196,138 +243,163 @@
     </div>
     <div id="playing-track" class="playing-track"></div>
     <div id="playing-artist" class="playing-artist"></div>
-    <p class="tap-add" id="tap-add">Tap your card to add to the queue</p>
+    <p class="tap-add" id="tap-add">TAP YOUR CARD TO ADD A SONG!</p>
   </div>
+
   <div class="playing-right" id="playing-right">
-    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="queue-logo" alt="FUNHUB" />
     <p class="queue-heading" id="queue-heading">Up next</p>
-    <ul class="queue-list" id="queue-list"><li class="queue-empty">Queue is empty</li></ul>
+    <ul class="queue-list" id="queue-list"></ul>
+    <div class="queue-empty-state" id="queue-empty-state" style="display:none">
+      <p id="queue-empty-text">Tap your card to add<br>the next song!</p>
+    </div>
   </div>
+
   <div class="split-panel" id="split-panel">
     <div class="split-top">
-      <input id="split-input" class="split-input" type="text" placeholder="Search for a song..." autocomplete="off" oninput="splitSearch(this.value)" />
+      <input id="split-input" class="split-input" type="text" autocomplete="off" oninput="splitSearch(this.value)" />
     </div>
-    <p id="split-status" class="split-status">Start typing to search</p>
+    <p id="split-status" class="split-status"></p>
     <ul id="split-results" class="split-results"></ul>
   </div>
 </div>
 
+<!-- SEARCH -->
 <div id="screen-search" class="screen">
   <div class="search-top">
-    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" style="height:32px;opacity:0.7;object-fit:contain;flex-shrink:0;" alt="FUNHUB" />
-    <input id="search-input" class="search-input" type="text" placeholder="Search for a song or artist..." autocomplete="off" oninput="liveSearch(this.value)" />
-    <button class="search-cancel" id="search-cancel" onclick="closeSearch()">Cancel</button>
+    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="search-logo" alt="FUNHUB" />
+    <input id="search-input" class="search-input" type="text" autocomplete="off" oninput="liveSearch(this.value)" />
+    <button class="search-cancel" id="search-cancel" onclick="closeSearch()">Back</button>
   </div>
   <div class="search-results-wrap">
-    <p id="search-status" class="search-status">Start typing to search</p>
+    <p id="search-status" class="search-status"></p>
     <ul id="search-results" class="search-results"></ul>
   </div>
 </div>
 
-<div class="credits-badge" id="credits-badge"><div class="credits-dot"></div><span id="credits-text">0 credits</span></div>
+<!-- CREDITS -->
+<div class="credits-badge" id="credits-badge"><div class="credits-dot"></div><span id="credits-text"></span></div>
+
+<!-- FLAGS -->
 <div class="lang-switcher">
   <button class="lang-btn active" data-lang="en" onclick="setLang('en')" title="English">🇺🇸</button>
   <button class="lang-btn" data-lang="fr" onclick="setLang('fr')" title="Français">🇫🇷</button>
   <button class="lang-btn" data-lang="es" onclick="setLang('es')" title="Español">🇲🇽</button>
 </div>
+
+<!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
 
+<!-- SETTINGS TAP ZONE -->
+<div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
 
-<!-- PIN OVERLAY -->
+<!-- PIN -->
 <div class="pin-overlay" id="pin-overlay">
   <div class="pin-box">
-    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="settings-logo" alt="FUNHUB" />
-    <p class="pin-title">Enter PIN</p>
+    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="pin-logo" alt="FUNHUB" />
+    <p class="pin-title">Staff Access</p>
     <input class="pin-input" id="pin-input" type="password" maxlength="4" placeholder="••••" oninput="checkPin(this.value)" autocomplete="off" />
     <p class="pin-error" id="pin-error"></p>
     <button class="pin-cancel" onclick="closePinOverlay()">Cancel</button>
   </div>
 </div>
 
-<!-- SETTINGS OVERLAY -->
+<!-- SETTINGS -->
 <div class="settings-overlay" id="settings-overlay">
   <div class="settings-box">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="settings-logo" alt="FUNHUB" />
-    <p class="settings-title">Settings</p>
+    <p class="settings-title">Operator Settings</p>
+
     <div class="settings-row">
-      <div class="settings-label">Credits loaded<small id="settings-credits-count">0 credits</small></div>
-      <button class="settings-btn danger" onclick="settingsClearCredits()">Clear</button>
+      <div class="settings-label">Credits loaded<small id="s-credits-loaded">0 credits</small></div>
+      <button class="s-btn danger" onclick="settingsClearCredits()">Clear</button>
     </div>
     <div class="settings-row">
-      <div class="settings-label">Credits per tap<small>How many credits one card tap adds</small></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <button class="settings-btn" onclick="adjustCpt(-1)" style="padding:8px 14px;font-size:18px;">−</button>
-        <span id="cpt-display" style="font-size:18px;font-weight:700;min-width:24px;text-align:center;">1</span>
-        <button class="settings-btn" onclick="adjustCpt(1)" style="padding:8px 14px;font-size:18px;">+</button>
+      <div class="settings-label">Credits per tap<small>Each card tap adds this many credits</small></div>
+      <div class="s-stepper">
+        <button onclick="adjustCpt(-1)">−</button>
+        <span id="cpt-val">1</span>
+        <button onclick="adjustCpt(1)">+</button>
       </div>
     </div>
     <div class="settings-row">
-      <div class="settings-label">Credits per song<small>How many credits one request costs</small></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <button class="settings-btn" onclick="adjustCps(-1)" style="padding:8px 14px;font-size:18px;">−</button>
-        <span id="cps-display" style="font-size:18px;font-weight:700;min-width:24px;text-align:center;">1</span>
-        <button class="settings-btn" onclick="adjustCps(1)" style="padding:8px 14px;font-size:18px;">+</button>
+      <div class="settings-label">Credits per song<small>Each song request costs this many credits</small></div>
+      <div class="s-stepper">
+        <button onclick="adjustCps(-1)">−</button>
+        <span id="cps-val">1</span>
+        <button onclick="adjustCps(1)">+</button>
       </div>
     </div>
     <div class="settings-row">
-      <div class="settings-label">Queue<small>Plays September &amp; clears queue</small></div>
-      <button class="settings-btn" onclick="settingsClearQueue()">Reset with September 🎵</button>
+      <div class="settings-label">Reset queue<small>Plays September — clears everything</small></div>
+      <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
     </div>
     <div class="settings-row">
-      <div class="settings-label">Session<small id="settings-session-info">Started this session</small></div>
-      <button class="settings-btn danger" onclick="settingsClearSession()">Reset</button>
+      <div class="settings-label">Change PIN<small>Must be 4 digits</small></div>
+      <button class="s-btn" onclick="settingsChangePin()">Change</button>
     </div>
     <div class="settings-row">
-      <div class="settings-label">Change PIN<small>Current PIN: ••••</small></div>
-      <button class="settings-btn" onclick="settingsChangePin()">Change</button>
-    </div>
-    <div class="settings-row">
-      <div class="settings-label">Spotify<small>Disconnect account</small></div>
-      <button class="settings-btn danger" onclick="settingsDisconnect()">Disconnect</button>
+      <div class="settings-label">Disconnect Spotify<small>Reconnect account</small></div>
+      <button class="s-btn danger" onclick="settingsDisconnect()">Disconnect</button>
     </div>
   </div>
   <button class="settings-close" onclick="closeSettings()">Close</button>
 </div>
 
-<!-- TAP ZONE -->
-<div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
-
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
 <script>
-// ── EMERGENCY RESET — runs before anything else ──
+// ── EMERGENCY RESET ──
 (function() {
   if (new URLSearchParams(window.location.search).get('reset') === '1') {
     sessionStorage.clear();
-    localStorage.removeItem('jukebox_pin');
-    localStorage.removeItem('jukebox_credits_per_tap');
-    localStorage.removeItem('jukebox_credits_per_song');
     window.history.replaceState(null, '', window.location.pathname);
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      const auth = document.getElementById('screen-auth');
-      if (auth) auth.classList.add('active');
+      document.getElementById('screen-auth').classList.add('active');
     });
   }
 })();
 
+// ── CONSTANTS ──
 const CLIENT_ID = 'd62edf739b664da690510800a0c5beec';
 const REDIRECT_URI = 'https://rico-funhub.github.io/jukebox';
 const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing streaming user-read-email user-read-private';
+const LOGO = 'https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png';
 
+// ── STATE ──
 let accessToken = null, tokenExpiry = 0, refreshToken = null;
 let deviceId = null, spotifyPlayer = null;
-let isPlaying = false, currentScreen = 'auth';
+let isPlaying = false, currentScreen = 'auth', sdkReady = false;
 let credits = 0;
-let playedUris = new Set();
+let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
+let creditsPerSong = parseInt(localStorage.getItem('jukebox_cps') || '1');
+let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
+let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
 let refreshTimer = null, refreshBusy = false;
-let sdkReady = false;
 
-// ── LANG ──
+// ── LANGUAGE ──
 const T = {
-  en: { tap: 'TAP YOUR CARD', tapPlay: 'TAP TO PLAY', sub: 'to request a song', now: 'Now playing', next: 'Up next', addQ: 'Tap your card to add to the queue', ph: 'Search for a song or artist...', cancel: 'Cancel' },
-  fr: { tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TAPPEZ POUR JOUER', sub: 'pour demander une chanson', now: 'En cours', next: 'À suivre', addQ: 'Tappez votre carte pour ajouter', ph: 'Rechercher une chanson...', cancel: 'Annuler' },
-  es: { tap: 'TOCA TU TARJETA', tapPlay: 'TOCA PARA REPRODUCIR', sub: 'para pedir una canción', now: 'Reproduciendo', next: 'A continuación', addQ: 'Toca tu tarjeta para agregar', ph: 'Buscar una canción...', cancel: 'Cancelar' }
+  en: {
+    tap: 'TAP YOUR CARD', tapPlay: 'TAP TO PLAY!', sub: 'to pick a song!',
+    nowPlaying: 'Now playing', upNext: 'Up next',
+    tapAdd: 'TAP YOUR CARD TO ADD A SONG!',
+    searchPh: 'What song do you want?', searching: 'Searching...', noResults: 'No results found.', back: 'Back',
+    splitPh: 'Search for a song...', queueEmpty: 'Tap your card to add\nthe next song!'
+  },
+  fr: {
+    tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TAPPEZ POUR JOUER!', sub: 'pour choisir une chanson!',
+    nowPlaying: 'En cours', upNext: 'Ensuite',
+    tapAdd: 'TAPPEZ VOTRE CARTE POUR AJOUTER!',
+    searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche...', noResults: 'Aucun résultat.', back: 'Retour',
+    splitPh: 'Chercher une chanson...', queueEmpty: 'Tappez votre carte pour ajouter\nla prochaine chanson!'
+  },
+  es: {
+    tap: 'TOCA TU TARJETA', tapPlay: '¡TOCA PARA JUGAR!', sub: '¡para elegir una canción!',
+    nowPlaying: 'Reproduciendo', upNext: 'Siguiente',
+    tapAdd: '¡TOCA TU TARJETA PARA AGREGAR!',
+    searchPh: '¿Qué canción quieres?', searching: 'Buscando...', noResults: 'Sin resultados.', back: 'Atrás',
+    splitPh: 'Buscar una canción...', queueEmpty: '¡Toca tu tarjeta para agregar\nla siguiente canción!'
+  }
 };
 let lang = 'en';
 
@@ -335,14 +407,26 @@ function setLang(l) {
   lang = l;
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
   const t = T[l];
+  updateAttractText();
+  const nb = document.getElementById('now-badge'); if (nb) nb.textContent = t.nowPlaying;
+  const qh = document.getElementById('queue-heading'); if (qh) qh.textContent = t.upNext;
+  const ta = document.getElementById('tap-add'); if (ta) ta.textContent = t.tapAdd;
+  const si = document.getElementById('search-input'); if (si) si.placeholder = t.searchPh;
+  const sc = document.getElementById('search-cancel'); if (sc) sc.textContent = t.back;
+  const spi = document.getElementById('split-input'); if (spi) spi.placeholder = t.splitPh;
+  const qe = document.getElementById('queue-empty-text'); if (qe) qe.innerHTML = t.queueEmpty.replace('\n','<br>');
+}
+
+function updateAttractText() {
+  const t = T[lang];
   const tapEl = document.getElementById('attract-tap');
-  if (tapEl) tapEl.textContent = (credits > 0 && !isPlaying) ? t.tapPlay : t.tap;
+  if (tapEl) {
+    tapEl.textContent = (credits > 0 && !isPlaying) ? t.tapPlay : t.tap;
+    tapEl.classList.toggle('tap-to-play', credits > 0 && !isPlaying);
+  }
   const sub = document.getElementById('attract-sub'); if (sub) sub.textContent = t.sub;
-  const now = document.getElementById('now-badge'); if (now) now.textContent = t.now;
-  const next = document.getElementById('queue-heading'); if (next) next.textContent = t.next;
-  const add = document.getElementById('tap-add'); if (add) add.textContent = t.addQ;
-  const si = document.getElementById('search-input'); if (si) si.placeholder = t.ph;
-  const sc = document.getElementById('search-cancel'); if (sc) sc.textContent = t.cancel;
+  const ac = document.getElementById('attract-credits');
+  if (ac) ac.textContent = creditsPerTap + (creditsPerTap === 1 ? ' Credit' : ' Credits');
 }
 
 // ── SCREENS ──
@@ -351,21 +435,19 @@ function showScreen(id) {
   document.getElementById('screen-' + id).classList.add('active');
   currentScreen = id;
   const cb = document.getElementById('credits-badge');
-  cb.style.display = (credits > 0 && (id === 'attract' || id === 'playing')) ? 'flex' : 'none';
-  if (id === 'attract') { credits = 0; playedUris = new Set(); updateAttract(); setLang(lang); }
+  cb.style.display = (credits > 0 && id !== 'auth') ? 'flex' : 'none';
+  if (id === 'attract') { credits = 0; setLang('en'); updateAttractText(); }
 }
 
-function updateAttract() {
-  const ac = document.getElementById('attract-credits');
-  if (ac) ac.textContent = creditsPerTap + ' Credits';
-  const t = T[lang];
-  const tapEl = document.getElementById('attract-tap');
-  if (!tapEl) return;
-  if (credits > 0 && !isPlaying) { tapEl.textContent = t.tapPlay; tapEl.classList.add('tap-to-play'); }
-  else { tapEl.textContent = t.tap; tapEl.classList.remove('tap-to-play'); }
+function updateCredits() {
   const cb = document.getElementById('credits-badge');
-  cb.style.display = credits > 0 ? 'flex' : 'none';
-  document.getElementById('credits-text').textContent = credits === 1 ? '1 credit' : credits + ' credits';
+  const ct = document.getElementById('credits-text');
+  if (credits > 0 && currentScreen !== 'auth') {
+    cb.style.display = 'flex';
+    ct.textContent = credits + (credits === 1 ? ' credit' : ' credits');
+  } else {
+    cb.style.display = 'none';
+  }
 }
 
 // ── AUTH ──
@@ -377,8 +459,8 @@ async function startAuth() {
   const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
   sessionStorage.setItem('pkce_verifier', verifier);
   sessionStorage.setItem('spotify_state', state);
-  const params = new URLSearchParams({ client_id: CLIENT_ID, response_type: 'code', redirect_uri: REDIRECT_URI, scope: SCOPES, state, code_challenge_method: 'S256', code_challenge: challenge });
-  window.location.href = 'https://accounts.spotify.com/authorize?' + params;
+  const p = new URLSearchParams({ client_id: CLIENT_ID, response_type: 'code', redirect_uri: REDIRECT_URI, scope: SCOPES, state, code_challenge_method: 'S256', code_challenge: challenge });
+  window.location.href = 'https://accounts.spotify.com/authorize?' + p;
 }
 
 async function exchangeCode(code) {
@@ -399,7 +481,7 @@ function saveTokens(d) {
   sessionStorage.setItem('spotify_refresh', refreshToken || '');
   sessionStorage.setItem('spotify_expiry', tokenExpiry);
   if (refreshTimer) clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(doRefresh, (d.expires_in - 180) * 1000);
+  refreshTimer = setTimeout(doRefresh, Math.max((d.expires_in - 180) * 1000, 10000));
 }
 
 async function doRefresh() {
@@ -413,8 +495,12 @@ async function doRefresh() {
       body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt, client_id: CLIENT_ID })
     });
     const d = await res.json();
-    if (d.access_token) { saveTokens(d); if (spotifyPlayer) { spotifyPlayer.disconnect(); setTimeout(initPlayer, 500); } }
-    else { setTimeout(doRefresh, 30000); }
+    if (d.access_token) {
+      saveTokens(d);
+      if (spotifyPlayer) { spotifyPlayer.disconnect(); setTimeout(initPlayer, 500); }
+    } else {
+      setTimeout(doRefresh, 30000);
+    }
   } catch(e) { setTimeout(doRefresh, 30000); }
   finally { refreshBusy = false; }
 }
@@ -426,13 +512,13 @@ async function ensureToken() {
     refreshToken = sessionStorage.getItem('spotify_refresh');
   }
   if (!accessToken) return false;
-  if (Date.now() > tokenExpiry) return !!(await doRefresh()) || !!accessToken;
+  if (Date.now() > tokenExpiry) { await doRefresh(); return !!accessToken; }
   return true;
 }
 
 async function api(url, opts = {}) {
   if (!await ensureToken()) return null;
-  opts.headers = { ...(opts.headers||{}), Authorization: 'Bearer ' + accessToken };
+  opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + accessToken };
   let r = await fetch(url, opts);
   if (r.status === 401) { await doRefresh(); opts.headers.Authorization = 'Bearer ' + accessToken; r = await fetch(url, opts); }
   return r;
@@ -448,7 +534,7 @@ function coinSound() {
       o.frequency.setValueAtTime(f, ctx.currentTime+s);
       g.gain.setValueAtTime(0.15, ctx.currentTime+s);
       g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+s+d);
-      o.start(ctx.currentTime+s); o.stop(ctx.currentTime+s+d+0.01);
+      o.start(ctx.currentTime+s); o.stop(ctx.currentTime+s+d+0.05);
     });
   } catch(e) {}
 }
@@ -472,7 +558,7 @@ async function initPlayer() {
     setTimeout(() => { sdkReady = true; }, 3000);
   });
   spotifyPlayer.addListener('not_ready', () => {
-    deviceId = null;
+    deviceId = null; sdkReady = false;
     document.getElementById('audio-badge').style.display = 'none';
     setTimeout(initPlayer, 5000);
   });
@@ -481,11 +567,18 @@ async function initPlayer() {
 }
 
 function onState(state) {
-  if (!state || !state.track_window?.current_track) { isPlaying = false; if (sdkReady && currentScreen === 'playing') showScreen('attract'); return; }
-  if (state.paused) { isPlaying = false; if (sdkReady && currentScreen === 'playing') showScreen('attract'); return; }
+  if (!state || !state.track_window?.current_track) {
+    isPlaying = false;
+    if (sdkReady && currentScreen === 'playing') showScreen('attract');
+    return;
+  }
+  if (state.paused) {
+    isPlaying = false;
+    if (sdkReady && currentScreen === 'playing') showScreen('attract');
+    return;
+  }
   isPlaying = true;
   const track = state.track_window.current_track;
-  if (track?.uri) playedUris.add(track.uri);
   const art = track.album?.images?.[0]?.url || null;
   document.getElementById('playing-track').textContent = track.name;
   document.getElementById('playing-artist').textContent = track.artists.map(a => a.name).join(', ');
@@ -494,9 +587,9 @@ function onState(state) {
   if (art) { img.src = art; img.style.display = 'block'; bg.style.backgroundImage = `url(${art})`; }
   else { img.style.display = 'none'; bg.style.backgroundImage = 'none'; }
   document.getElementById('disc').classList.add('spinning');
+  saveState(track.name, track.artists.map(a=>a.name).join(', '), art);
   if (currentScreen !== 'search') showScreen('playing');
   fetchQueue();
-  savePlaybackState(track.name, track.artists.map(a=>a.name).join(', '), art, art);
 }
 
 // ── QUEUE ──
@@ -504,24 +597,37 @@ async function fetchQueue() {
   if (!await ensureToken()) return;
   try {
     const r = await api('https://api.spotify.com/v1/me/player/queue');
-    if (!r || !r.ok) { document.getElementById('queue-list').innerHTML = '<li class="queue-empty">Queue is empty</li>'; return; }
+    if (!r || !r.ok) { showQueueEmpty(); return; }
     const d = await r.json();
-    const cur = d.currently_playing;
     const seen = new Set();
-    if (cur?.id) seen.add(cur.id);
-    if (cur?.uri) seen.add(cur.uri);
+    if (d.currently_playing?.id) seen.add(d.currently_playing.id);
+    if (d.currently_playing?.uri) seen.add(d.currently_playing.uri);
     const items = (d.queue || []).filter(t => {
-      if (!t.id) return false;
-      if (seen.has(t.id) || seen.has(t.uri)) return false;
-      seen.add(t.id); seen.add(t.uri);
-      return true;
+      if (!t.id || seen.has(t.id) || seen.has(t.uri)) return false;
+      seen.add(t.id); seen.add(t.uri); return true;
     }).slice(0, 8);
+
     const list = document.getElementById('queue-list');
-    list.innerHTML = items.length ? items.map((t,i) => {
+    const empty = document.getElementById('queue-empty-state');
+    if (!items.length) { list.innerHTML = ''; showQueueEmpty(); return; }
+    empty.style.display = 'none';
+    list.innerHTML = items.map((t, i) => {
       const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
-      return `<li class="queue-item"><span class="queue-num">${i+1}</span><div class="queue-thumb">${a?`<img src="${a}" alt="">`:''}</div><div class="queue-info"><div class="queue-track">${t.name}</div><div class="queue-artist">${t.artists.map(a=>a.name).join(', ')}</div></div></li>`;
-    }).join('') : '<li class="queue-empty">Queue is empty</li>';
-  } catch(e) { document.getElementById('queue-list').innerHTML = '<li class="queue-empty">Queue is empty</li>'; }
+      return `<li class="queue-item">
+        <span class="queue-num">${i+1}</span>
+        <div class="queue-thumb">${a ? `<img src="${a}" alt="">` : ''}</div>
+        <div class="queue-info"><div class="queue-track">${t.name}</div><div class="queue-artist">${t.artists.map(a=>a.name).join(', ')}</div></div>
+      </li>`;
+    }).join('');
+  } catch(e) { showQueueEmpty(); }
+}
+
+function showQueueEmpty() {
+  document.getElementById('queue-list').innerHTML = '';
+  const t = T[lang];
+  const qe = document.getElementById('queue-empty-text');
+  if (qe) qe.innerHTML = t.queueEmpty.replace('\n', '<br>');
+  document.getElementById('queue-empty-state').style.display = 'flex';
 }
 
 // ── QUEUE TRACK ──
@@ -540,34 +646,36 @@ async function queueTrack(uri, name, artist, art) {
       await api(playUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
     }
 
-    playedUris.add(uri);
     credits = Math.max(0, credits - creditsPerSong);
+    updateCredits();
     closeSplit();
     if (currentScreen === 'search') closeSearch();
     showScreen('playing');
     setTimeout(fetchQueue, 1500);
-    setTimeout(fetchQueue, 3000);
+    setTimeout(fetchQueue, 3500);
   } catch(e) {
     const el = document.getElementById('search-status') || document.getElementById('split-status');
     if (el) el.textContent = 'Could not add song. Make sure Spotify is open.';
   }
 }
 
-// ── SEARCH ──
+// ── FULL SEARCH ──
 function openSearch() {
   showScreen('search');
-  document.getElementById('search-input').value = '';
+  const t = T[lang];
+  const si = document.getElementById('search-input');
+  si.value = ''; si.placeholder = t.searchPh;
   document.getElementById('search-results').innerHTML = '';
-  document.getElementById('search-status').textContent = T[lang].ph ? 'Start typing to search' : 'Start typing';
-  setTimeout(() => document.getElementById('search-input').focus(), 80);
+  document.getElementById('search-status').textContent = '';
+  setTimeout(() => si.focus(), 80);
 }
 
 function closeSearch() { isPlaying ? showScreen('playing') : showScreen('attract'); }
 
 function liveSearch(val) {
   clearTimeout(searchTimer);
-  if (!val.trim()) { document.getElementById('search-results').innerHTML = ''; document.getElementById('search-status').textContent = 'Start typing to search'; return; }
-  document.getElementById('search-status').textContent = 'Searching...';
+  if (!val.trim()) { document.getElementById('search-results').innerHTML = ''; document.getElementById('search-status').textContent = ''; return; }
+  document.getElementById('search-status').textContent = T[lang].searching;
   searchTimer = setTimeout(() => doSearch(val.trim(), 'search-results', 'search-status', false), 350);
 }
 
@@ -575,10 +683,11 @@ function liveSearch(val) {
 function openSplit() {
   document.getElementById('split-panel').classList.add('open');
   document.getElementById('playing-right').style.display = 'none';
-  document.getElementById('split-input').value = '';
+  const si = document.getElementById('split-input');
+  si.value = ''; si.placeholder = T[lang].splitPh;
   document.getElementById('split-results').innerHTML = '';
-  document.getElementById('split-status').textContent = 'Start typing to search';
-  setTimeout(() => document.getElementById('split-input').focus(), 80);
+  document.getElementById('split-status').textContent = '';
+  setTimeout(() => si.focus(), 80);
 }
 
 function closeSplit() {
@@ -588,66 +697,54 @@ function closeSplit() {
 
 function splitSearch(val) {
   clearTimeout(splitTimer);
-  if (!val.trim()) { document.getElementById('split-results').innerHTML = ''; document.getElementById('split-status').textContent = 'Start typing to search'; return; }
-  document.getElementById('split-status').textContent = 'Searching...';
+  if (!val.trim()) { document.getElementById('split-results').innerHTML = ''; document.getElementById('split-status').textContent = ''; return; }
+  document.getElementById('split-status').textContent = T[lang].searching;
   splitTimer = setTimeout(() => doSearch(val.trim(), 'split-results', 'split-status', true), 350);
 }
 
+// ── SHARED SEARCH ──
 async function doSearch(q, resultsId, statusId, small) {
   if (!await ensureToken()) return;
   document.getElementById(resultsId).innerHTML = '';
   try {
     const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8`);
-    if (!r || !r.ok) { document.getElementById(statusId).textContent = 'Search failed.'; return; }
+    if (!r || !r.ok) { document.getElementById(statusId).textContent = T[lang].noResults; return; }
     const d = await r.json();
     const tracks = d.tracks?.items || [];
     document.getElementById(statusId).textContent = '';
-    if (!tracks.length) { document.getElementById(statusId).textContent = 'No results found.'; return; }
+    if (!tracks.length) { document.getElementById(statusId).textContent = T[lang].noResults; return; }
     const safe = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const cls = small ? 'split' : 'search';
     document.getElementById(resultsId).innerHTML = tracks.map(t => {
       const a = t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || '';
-      const cls = small ? 'split-result' : 'search-result';
-      const tcls = small ? 'split-track' : 'search-track';
-      const acls = small ? 'split-artist' : 'search-artist';
-      const icls = small ? 'split-thumb' : 'search-thumb';
-      const bcls = small ? 'split-play-btn' : 'search-play-btn';
-      const isize = small ? '13px' : '16px';
-      return `<li class="${cls}" onclick="queueTrack('${safe(t.uri)}','${safe(t.name)}','${safe(t.artists.map(x=>x.name).join(', '))}','${safe(a)}')">
-        <div class="${icls}">${a?`<img src="${a}" alt="">`:''}</div>
-        <div class="search-info"><div class="${tcls}">${t.name}</div><div class="${acls}">${t.artists.map(x=>x.name).join(', ')}</div></div>
-        <button class="${bcls}" aria-label="Play"><svg viewBox="0 0 24 24" style="width:${isize};height:${isize};fill:white"><path d="M8 5v14l11-7z"/></svg></button>
+      const btnSize = small ? '16px' : '20px';
+      return `<li class="${cls}-result" onclick="queueTrack('${safe(t.uri)}','${safe(t.name)}','${safe(t.artists.map(x=>x.name).join(', '))}','${safe(a)}')">
+        <div class="${cls}-thumb">${a ? `<img src="${a}" alt="">` : ''}</div>
+        <div class="${cls}-info"><div class="${cls}-track">${t.name}</div><div class="${cls}-artist">${t.artists.map(x=>x.name).join(', ')}</div></div>
+        <button class="${cls}-play-btn" aria-label="Add"><svg viewBox="0 0 24 24" style="width:${btnSize};height:${btnSize};fill:white"><path d="M8 5v14l11-7z"/></svg></button>
       </li>`;
     }).join('');
-  } catch(e) { document.getElementById(statusId).textContent = 'Search failed.'; }
+  } catch(e) { document.getElementById(statusId).textContent = T[lang].noResults; }
 }
 
-// ── T KEY ──
+// ── T KEY / CARD TAP ──
 document.addEventListener('keydown', e => {
   if (e.key !== 't' && e.key !== 'T') return;
   e.preventDefault();
   coinSound();
   credits += creditsPerTap;
-  document.getElementById('credits-text').textContent = credits === 1 ? '1 credit' : credits + ' credits';
-  document.getElementById('credits-badge').style.display = 'flex';
+  updateCredits();
+  updateAttractText();
   if (isPlaying) { openSplit(); }
-  else { updateAttract(); if (currentScreen === 'attract') openSearch(); }
+  else if (currentScreen === 'attract') { openSearch(); }
 });
 
-
 // ── SETTINGS ──
-let settingsTaps = 0, settingsTapTimer = null;
-let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
-let creditsPerTap = parseInt(localStorage.getItem('jukebox_credits_per_tap') || '1');
-let creditsPerSong = parseInt(localStorage.getItem('jukebox_credits_per_song') || '1');
-
 function handleSettingsTap() {
   settingsTaps++;
   if (settingsTapTimer) clearTimeout(settingsTapTimer);
   settingsTapTimer = setTimeout(() => { settingsTaps = 0; }, 3000);
-  if (settingsTaps >= 5) {
-    settingsTaps = 0;
-    openPinOverlay();
-  }
+  if (settingsTaps >= 5) { settingsTaps = 0; openPinOverlay(); }
 }
 
 function openPinOverlay() {
@@ -657,180 +754,75 @@ function openPinOverlay() {
   setTimeout(() => document.getElementById('pin-input').focus(), 100);
 }
 
-function closePinOverlay() {
-  document.getElementById('pin-overlay').classList.remove('open');
-}
+function closePinOverlay() { document.getElementById('pin-overlay').classList.remove('open'); }
 
 function checkPin(val) {
   if (val.length < 4) return;
-  if (val === settingsPin) {
-    closePinOverlay();
-    openSettings();
-  } else {
-    document.getElementById('pin-error').textContent = 'Incorrect PIN';
-    document.getElementById('pin-input').value = '';
-  }
-}
-
-function adjustCpt(delta) {
-  creditsPerTap = Math.max(1, creditsPerTap + delta);
-  localStorage.setItem('jukebox_credits_per_tap', creditsPerTap);
-  document.getElementById('cpt-display').textContent = creditsPerTap;
-  const el = document.getElementById('attract-credits');
-  if (el) el.textContent = creditsPerTap + ' Credits';
-}
-
-function adjustCps(delta) {
-  creditsPerSong = Math.max(1, creditsPerSong + delta);
-  localStorage.setItem('jukebox_credits_per_song', creditsPerSong);
-  document.getElementById('cps-display').textContent = creditsPerSong;
+  if (val === settingsPin) { closePinOverlay(); openSettings(); }
+  else { document.getElementById('pin-error').textContent = 'Incorrect PIN'; document.getElementById('pin-input').value = ''; }
 }
 
 function openSettings() {
-  document.getElementById('settings-credits-count').textContent = credits + ' credits loaded';
-  document.getElementById('cpt-display').textContent = creditsPerTap;
-  document.getElementById('cps-display').textContent = creditsPerSong;
-  const start = parseInt(sessionStorage.getItem('session_start') || Date.now());
-  const hrs = Math.floor((Date.now() - start) / 3600000);
-  const mins = Math.floor(((Date.now() - start) % 3600000) / 60000);
-  document.getElementById('settings-session-info').textContent = hrs > 0 ? `${hrs}h ${mins}m active` : `${mins}m active`;
+  document.getElementById('s-credits-loaded').textContent = credits + ' credits';
+  document.getElementById('cpt-val').textContent = creditsPerTap;
+  document.getElementById('cps-val').textContent = creditsPerSong;
   document.getElementById('settings-overlay').classList.add('open');
 }
 
-function closeSettings() {
-  document.getElementById('settings-overlay').classList.remove('open');
+function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); }
+
+function adjustCpt(d) {
+  creditsPerTap = Math.max(1, creditsPerTap + d);
+  localStorage.setItem('jukebox_cpt', creditsPerTap);
+  document.getElementById('cpt-val').textContent = creditsPerTap;
+  updateAttractText();
+}
+
+function adjustCps(d) {
+  creditsPerSong = Math.max(1, creditsPerSong + d);
+  localStorage.setItem('jukebox_cps', creditsPerSong);
+  document.getElementById('cps-val').textContent = creditsPerSong;
 }
 
 function settingsClearCredits() {
-  credits = 0;
-  updateAttract();
-  document.getElementById('settings-credits-count').textContent = '0 credits loaded';
-  document.getElementById('credits-badge').style.display = 'none';
+  credits = 0; updateCredits(); updateAttractText();
+  document.getElementById('s-credits-loaded').textContent = '0 credits';
 }
 
-async function settingsClearQueue() {
+async function settingsResetQueue() {
   if (!await ensureToken()) return;
-  try {
-    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
-    const playUrl = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
-    await api(playUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uris: ['spotify:track:2grjqo0Frpf2okIBiifQKs'] })
-    });
-    closeSettings();
-    setTimeout(fetchQueue, 800);
-  } catch(e) {}
-}
-
-function settingsClearSession() {
-  sessionStorage.removeItem('jukebox_state');
-  credits = 0;
-  updateAttract();
+  const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+  const url = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
+  await api(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: ['spotify:track:2grjqo0Frpf2okIBiifQKs'] }) });
   closeSettings();
-  showScreen('attract');
 }
 
 function settingsChangePin() {
-  const newPin = prompt('Enter new 4-digit PIN:');
-  if (newPin && /^\d{4}$/.test(newPin)) {
-    settingsPin = newPin;
-    localStorage.setItem('jukebox_pin', newPin);
-    alert('PIN updated.');
-  } else if (newPin) {
-    alert('PIN must be exactly 4 digits.');
-  }
+  const p = prompt('New 4-digit PIN:');
+  if (p && /^\d{4}$/.test(p)) { settingsPin = p; localStorage.setItem('jukebox_pin', p); alert('PIN updated.'); }
+  else if (p) alert('PIN must be exactly 4 digits.');
 }
 
 function settingsDisconnect() {
-  if (confirm('Disconnect Spotify? The page will reload.')) {
-    sessionStorage.clear();
-    window.location.href = window.location.pathname;
-  }
+  if (confirm('Disconnect Spotify?')) { sessionStorage.clear(); window.location.href = window.location.pathname; }
 }
 
 // ── SESSION PERSISTENCE ──
-function savePlaybackState(trackName, artistName, artUrl, bgUrl) {
-  const state = { trackName, artistName, artUrl, bgUrl, savedAt: Date.now() };
-  sessionStorage.setItem('jukebox_state', JSON.stringify(state));
+function saveState(name, artist, art) {
+  sessionStorage.setItem('jukebox_state', JSON.stringify({ name, artist, art, t: Date.now() }));
 }
 
-function loadPlaybackState() {
+function loadState() {
   try {
-    const raw = sessionStorage.getItem('jukebox_state');
-    if (!raw) return null;
-    const state = JSON.parse(raw);
-    // Expire after 8 hours
-    if (Date.now() - state.savedAt > 8 * 3600000) {
-      sessionStorage.removeItem('jukebox_state');
-      return null;
-    }
-    return state;
+    const s = JSON.parse(sessionStorage.getItem('jukebox_state') || 'null');
+    if (!s || Date.now() - s.t > 8 * 3600000) { sessionStorage.removeItem('jukebox_state'); return null; }
+    return s;
   } catch(e) { return null; }
 }
 
-// ── INIT ──
-async function init() {
-  // Reset already handled at script top if ?reset=1
-  if (new URLSearchParams(window.location.search).get('reset') === '1') return;
-
-
-  // Handle OAuth callback
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  const state = params.get('state');
-  if (code && state === sessionStorage.getItem('spotify_state')) {
-    window.history.replaceState(null, '', window.location.pathname);
-    const ok = await exchangeCode(code);
-    if (ok) { showScreen('attract'); startKeepAlive(); return; }
-  }
-
-  // Resume from session
-  if (await ensureToken()) {
-    showScreen('attract');
-    startKeepAlive();
-    // Record session start time
-    if (!sessionStorage.getItem('session_start')) sessionStorage.setItem('session_start', Date.now());
-
-    // Try to restore saved state first
-    const saved = loadPlaybackState();
-    if (saved) {
-      document.getElementById('playing-track').textContent = saved.trackName;
-      document.getElementById('playing-artist').textContent = saved.artistName;
-      const img = document.getElementById('art-img');
-      if (saved.artUrl) { img.src = saved.artUrl; img.style.display = 'block'; document.getElementById('playing-bg').style.backgroundImage = `url(${saved.artUrl})`; }
-      document.getElementById('disc').classList.add('spinning');
-    }
-
-    // Check live Spotify state
-    try {
-      const r = await api('https://api.spotify.com/v1/me/player');
-      if (r?.status === 200) {
-        const d = await r.json();
-        if (d?.is_playing && d?.item) {
-          const t = d.item;
-          const art = t.album?.images?.[0]?.url || null;
-          document.getElementById('playing-track').textContent = t.name;
-          document.getElementById('playing-artist').textContent = t.artists.map(a=>a.name).join(', ');
-          const img = document.getElementById('art-img');
-          if (art) { img.src = art; img.style.display = 'block'; document.getElementById('playing-bg').style.backgroundImage = `url(${art})`; }
-          document.getElementById('disc').classList.add('spinning');
-          isPlaying = true;
-          showScreen('playing');
-          fetchQueue();
-        }
-      }
-    } catch(e) {}
-  } else {
-    showScreen('auth');
-  }
-}
-
+// ── KEEP ALIVE ──
 function startKeepAlive() {
-  // Poll queue regularly while playing
-  setInterval(() => {
-    if (isPlaying) fetchQueue();
-  }, 8000);
+  setInterval(() => { if (isPlaying) fetchQueue(); }, 8000);
   setInterval(async () => {
     if (!accessToken) return;
     try { await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + accessToken } }); } catch(e) {}
@@ -838,6 +830,52 @@ function startKeepAlive() {
   setInterval(() => {
     if (!deviceId && accessToken && spotifyPlayer) { try { spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
   }, 60000);
+}
+
+// ── INIT ──
+async function init() {
+  if (new URLSearchParams(window.location.search).get('reset') === '1') return;
+
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code'), state = params.get('state');
+  if (code && state === sessionStorage.getItem('spotify_state')) {
+    window.history.replaceState(null, '', window.location.pathname);
+    if (await exchangeCode(code)) { showScreen('attract'); startKeepAlive(); return; }
+  }
+
+  if (await ensureToken()) {
+    showScreen('attract');
+    startKeepAlive();
+
+    // Restore saved state
+    const saved = loadState();
+    if (saved) {
+      document.getElementById('playing-track').textContent = saved.name;
+      document.getElementById('playing-artist').textContent = saved.artist;
+      const img = document.getElementById('art-img');
+      if (saved.art) { img.src = saved.art; img.style.display = 'block'; document.getElementById('playing-bg').style.backgroundImage = `url(${saved.art})`; }
+      document.getElementById('disc').classList.add('spinning');
+    }
+
+    // Check live state
+    try {
+      const r = await api('https://api.spotify.com/v1/me/player');
+      if (r?.status === 200) {
+        const d = await r.json();
+        if (d?.is_playing && d?.item) {
+          const t = d.item; const art = t.album?.images?.[0]?.url || null;
+          document.getElementById('playing-track').textContent = t.name;
+          document.getElementById('playing-artist').textContent = t.artists.map(a=>a.name).join(', ');
+          const img = document.getElementById('art-img');
+          if (art) { img.src = art; img.style.display = 'block'; document.getElementById('playing-bg').style.backgroundImage = `url(${art})`; }
+          document.getElementById('disc').classList.add('spinning');
+          isPlaying = true; showScreen('playing'); fetchQueue();
+        }
+      }
+    } catch(e) {}
+  } else {
+    showScreen('auth');
+  }
 }
 
 init();
