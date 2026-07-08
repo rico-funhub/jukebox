@@ -236,29 +236,56 @@
     /* ── ON-SCREEN KEYBOARD ── */
     .osk-wrap {
       position: relative; z-index: 1;
-      padding: 0.75rem 2rem 1.25rem;
-      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 10px 16px 14px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      background: rgba(0,0,0,0.3);
       flex-shrink: 0;
     }
-    .osk { display: flex; flex-direction: column; gap: 8px; }
-    .osk-row { display: flex; gap: 6px; justify-content: center; }
+    .osk { display: flex; flex-direction: column; gap: 9px; align-items: center; }
+    .osk-row { display: flex; gap: 7px; justify-content: center; width: 100%; }
     .osk-key {
-      height: 52px; min-width: 52px; flex: 1;
-      border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.07);
-      color: #fff; font-size: 18px; font-weight: 600;
-      cursor: pointer; font-family: inherit;
+      height: 46px;
+      flex: 1;
+      max-width: 58px;
+      border-radius: 8px;
+      border: none;
+      background: #3a3a3c;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       display: flex; align-items: center; justify-content: center;
       user-select: none; -webkit-user-select: none;
-      transition: background 0.1s;
-      max-width: 70px;
+      box-shadow: 0 2px 0 rgba(0,0,0,0.5);
+      transition: filter 0.05s;
     }
-    .osk-key:active { background: rgba(255,255,255,0.2); transform: scale(0.95); }
-    .osk-key.wide { max-width: 120px; font-size: 15px; }
-    .osk-key.space { max-width: 999px; flex: 4; }
-    .osk-key.action { background: #1DB954; border-color: #1DB954; }
-    .osk-key.action:active { background: #1ed760; }
-    .osk-key.del { background: rgba(255,60,60,0.15); border-color: rgba(255,60,60,0.25); }
+    .osk-key:active { filter: brightness(1.4); transform: translateY(1px); box-shadow: none; }
+    .osk-key.key-special {
+      background: #636366;
+      font-size: 15px;
+      flex: 1.5;
+      max-width: 80px;
+    }
+    .osk-key.key-space {
+      background: #3a3a3c;
+      flex: 5;
+      max-width: 99999px;
+      font-size: 15px;
+      color: rgba(255,255,255,0.5);
+    }
+    .osk-key.key-del {
+      background: #636366;
+      font-size: 20px;
+      flex: 1.5;
+      max-width: 80px;
+    }
+    .osk-key.key-clear {
+      background: rgba(255,60,60,0.5);
+      font-size: 14px;
+      flex: 1.5;
+      max-width: 80px;
+    }
 
     /* ── STAFF PANEL ── */
     .staff-overlay {
@@ -1320,31 +1347,34 @@ function buildOsk(containerId, inputId) {
   if (!wrap) return;
   wrap.innerHTML = '';
 
-  const rows = [
-    OSK_ROWS[0],
-    OSK_ROWS[1],
-    OSK_ROWS[2],
-    OSK_ROWS[3]
-  ];
+  // Row 1: numbers
+  const r1 = document.createElement('div'); r1.className = 'osk-row';
+  ['1','2','3','4','5','6','7','8','9','0'].forEach(k =>
+    r1.appendChild(makeKey(k, '', () => oskType(inputId, k))));
+  wrap.appendChild(r1);
 
-  rows.forEach((row, ri) => {
-    const rowEl = document.createElement('div');
-    rowEl.className = 'osk-row';
+  // Row 2: QWERTYUIOP
+  const r2 = document.createElement('div'); r2.className = 'osk-row';
+  ['Q','W','E','R','T','Y','U','I','O','P'].forEach(k =>
+    r2.appendChild(makeKey(k, '', () => oskType(inputId, k))));
+  wrap.appendChild(r2);
 
-    // Row 3 (index 2): add ⌫ at end
-    row.forEach(k => rowEl.appendChild(makeKey(k, '', () => oskType(inputId, k))));
-    if (ri === 2) {
-      rowEl.appendChild(makeKey('⌫', 'del wide', () => oskDel(inputId)));
-    }
+  // Row 3: ASDFGHJKL + backspace
+  const r3 = document.createElement('div'); r3.className = 'osk-row';
+  r3.style.width = '95%';
+  ['A','S','D','F','G','H','J','K','L'].forEach(k =>
+    r3.appendChild(makeKey(k, '', () => oskType(inputId, k))));
+  r3.appendChild(makeKey('⌫', 'key-del', () => oskDel(inputId)));
+  wrap.appendChild(r3);
 
-    // Row 4 (index 3): SPACE bar and clear
-    if (ri === 3) {
-      rowEl.appendChild(makeKey('ESPACE', 'space', () => oskType(inputId, ' ')));
-      rowEl.appendChild(makeKey('✕', 'del wide', () => oskClear(inputId)));
-    }
-
-    wrap.appendChild(rowEl);
-  });
+  // Row 4: ZXCVBNM + space + clear
+  const r4 = document.createElement('div'); r4.className = 'osk-row';
+  r4.style.width = '100%';
+  ['Z','X','C','V','B','N','M'].forEach(k =>
+    r4.appendChild(makeKey(k, '', () => oskType(inputId, k))));
+  r4.appendChild(makeKey('space', 'key-space', () => oskType(inputId, ' ')));
+  r4.appendChild(makeKey('clear', 'key-clear', () => oskClear(inputId)));
+  wrap.appendChild(r4);
 }
 
 function makeKey(label, cls, fn) {
