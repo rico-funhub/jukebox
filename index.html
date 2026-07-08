@@ -450,6 +450,10 @@
     .pin-title { font-size: 12px; font-weight: 700; letter-spacing: 0.22em; color: rgba(255,255,255,0.35); text-transform: uppercase; margin-bottom: 1.25rem; }
     .pin-input { width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 18px; font-size: 32px; font-weight: 800; color: #fff; font-family: inherit; outline: none; text-align: center; letter-spacing: 0.4em; margin-bottom: 0.75rem; }
     .pin-input:focus { border-color: #1DB954; }
+    .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 0.75rem; }
+    .pin-key { background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 18px 0; font-size: 26px; font-weight: 700; color: #fff; font-family: inherit; cursor: pointer; -webkit-user-select: none; user-select: none; }
+    .pin-key:active { background: #1DB954; }
+    .pin-key-wide { font-size: 22px; }
     .pin-error { font-size: 13px; color: #ff6b6b; min-height: 20px; margin-bottom: 0.75rem; }
     .pin-cancel { background: none; border: none; color: rgba(255,255,255,0.3); font-size: 15px; cursor: pointer; font-family: inherit; }
 
@@ -501,11 +505,13 @@
 
     <label style="font-size:12px;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.4);text-transform:uppercase;">Key A — Client ID (required)</label>
     <div style="display:flex;gap:8px;margin:0.5rem 0 0.5rem;">
-      <input id="setup-key-input" type="text" inputmode="latin" placeholder="Paste Key A Client ID" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
+      <input id="setup-key-input" type="text" inputmode="none" placeholder="Paste or tap to type Key A" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
+      <button class="s-btn" onclick="pasteInto('setup-key-input')" style="padding:0 18px;white-space:nowrap;">📋 Paste</button>
     </div>
     <label style="font-size:12px;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.4);text-transform:uppercase;">Key B — Client ID (optional)</label>
     <div style="display:flex;gap:8px;margin:0.5rem 0 0.5rem;">
-      <input id="setup-key-b-input" type="text" inputmode="latin" placeholder="Paste Key B Client ID (optional)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
+      <input id="setup-key-b-input" type="text" inputmode="none" placeholder="Paste or tap to type Key B (optional)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
+      <button class="s-btn" onclick="pasteInto('setup-key-b-input')" style="padding:0 18px;white-space:nowrap;">📋 Paste</button>
     </div>
     <p id="setup-existing-note" style="display:none;font-size:14px;color:#1DB954;background:rgba(29,185,84,0.08);border:1px solid rgba(29,185,84,0.25);border-radius:10px;padding:10px 14px;margin-bottom:0.75rem;">✓ A key is already set for this jukebox. Tap <strong>Continue</strong> to use it, or paste a different one to replace it.</p>
     <p id="setup-error" style="font-size:13px;color:#ff6b6b;min-height:18px;margin-bottom:0.5rem;"></p>
@@ -686,7 +692,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.3.3</p>
+<p class="version-badge">v1.4.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -696,8 +702,21 @@
   <div class="pin-box">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="pin-logo" alt="FUNHUB" />
     <p class="pin-title">Staff Access</p>
-    <input class="pin-input" id="pin-input" type="password" maxlength="4" placeholder="••••" oninput="checkPin(this.value)" autocomplete="off" />
+    <input class="pin-input" id="pin-input" type="password" maxlength="4" placeholder="••••" inputmode="none" oninput="checkPin(this.value)" autocomplete="off" />
     <p class="pin-error" id="pin-error"></p>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key pin-key-wide" onclick="pinDel()">⌫</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+    </div>
     <button class="pin-cancel" onclick="closePinOverlay()">Cancel</button>
   </div>
 </div>
@@ -1078,6 +1097,19 @@ async function startAuth() {
 }
 
 // ── FIRST-RUN / FIX-KEYS SETUP ──
+// Touch-friendly paste — the tablet has no keyboard, so pasting a Client ID from
+// the clipboard (copied from an email/note on the tablet) is the easy path.
+async function pasteInto(id) {
+  const inp = document.getElementById(id);
+  if (!inp) return;
+  try {
+    const txt = await navigator.clipboard.readText();
+    inp.value = (txt || '').replace(/[\s\u200B-\u200D\uFEFF]/g, '');
+  } catch(e) {
+    alert('Couldn\'t read the clipboard. Copy the Client ID first (long-press → Copy), then tap Paste. Or tap the field to type it with the on-screen keyboard.');
+  }
+}
+
 // Open the setup screen to enter or FIX keys. Prefills whatever's already saved
 // so staff can correct a bad key instead of retyping both.
 function openSetup() {
@@ -1834,10 +1866,23 @@ function openPinOverlay(purpose) {
   document.getElementById('pin-overlay').classList.add('open');
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').textContent = '';
-  setTimeout(() => document.getElementById('pin-input').focus(), 100);
 }
 
 function closePinOverlay() { document.getElementById('pin-overlay').classList.remove('open'); }
+
+// Touch numpad — the tablet has no physical keyboard, so PIN entry is all on-screen.
+function pinKey(d) {
+  const inp = document.getElementById('pin-input');
+  if (inp.value.length >= 4) return;
+  inp.value += d;
+  checkPin(inp.value);
+}
+
+function pinDel() {
+  const inp = document.getElementById('pin-input');
+  inp.value = inp.value.slice(0, -1);
+  document.getElementById('pin-error').textContent = '';
+}
 
 function checkPin(val) {
   if (val.length < 4) return;
@@ -2311,8 +2356,8 @@ function buildOsk() {
 
   updateOskCase();
 
-  // Tapping a search input brings the keyboard back after hide
-  ['search-input', 'split-input'].forEach(id => {
+  // Tapping an input brings the on-screen keyboard back after hide.
+  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input'].forEach(id => {
     const inp = document.getElementById(id);
     if (!inp) return;
     inp.addEventListener('click', () => { if (oskEnabled) showOsk(id); });
@@ -2364,7 +2409,7 @@ function applyOskMode() {
   // OSK on: suppress the native tablet keyboard with inputmode=none, but keep the
   // field fully live so programmatic input + oninput still fire (readonly would kill them).
   // OSK off: normal field, native/PC keyboard types directly.
-  ['search-input', 'split-input'].forEach(id => {
+  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input'].forEach(id => {
     const inp = document.getElementById(id);
     if (!inp) return;
     if (oskEnabled) inp.setAttribute('inputmode', 'none');
