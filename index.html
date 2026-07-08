@@ -412,6 +412,8 @@
 
 <!-- ATTRACT -->
 <div id="screen-attract" class="screen">
+  <div id="attract-bg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(60px) brightness(0.15);transform:scale(1.15);z-index:0;transition:background-image 1.5s ease;"></div>
+  <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:1.5rem;">
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="attract-logo" alt="FUNHUB" />
   <div class="attract-disc-wrap">
     <div class="attract-disc" id="attract-disc">
@@ -421,6 +423,7 @@
   <p class="attract-tap" id="attract-tap">TAP YOUR CARD</p>
   <p class="attract-credits" id="attract-credits">1 Credit</p>
   <p class="attract-sub" id="attract-sub">to pick a song!</p>
+  </div>
 </div>
 
 <!-- NOW PLAYING -->
@@ -712,6 +715,10 @@ function showScreen(id) {
     credits = 0; setLang('en'); updateAttractText();
     const ad = document.getElementById('attract-disc');
     if (ad) { ad.classList.remove('fly-out'); ad.classList.add('fly-in'); setTimeout(() => ad.classList.remove('fly-in'), 600); }
+    stopAttractBg();
+    loadAttractArts();
+  } else {
+    stopAttractBg();
   }
 }
 
@@ -1197,6 +1204,54 @@ function renderBlacklist() {
   ).join('') : '<p style="font-size:13px;color:rgba(255,255,255,0.2);padding:8px 0;">No blocked songs or artists</p>';
 }
 
+
+// ── ATTRACT BACKGROUND ROTATION ──
+let attractBgTimer = null;
+let attractBgArts = [];
+let attractBgIdx = 0;
+
+async function loadAttractArts() {
+  // Get top songs from revenue
+  const rev = getRevenue();
+  const allSongs = {};
+  Object.values(rev).forEach(day => {
+    Object.entries(day.topSongs || {}).forEach(([k, v]) => {
+      allSongs[k] = (allSongs[k] || 0) + v;
+    });
+  });
+  const topKeys = Object.entries(allSongs).sort((a,b) => b[1]-a[1]).slice(0,10).map(e => e[0]);
+
+  if (!topKeys.length) return;
+
+  // Search Spotify for each top song to get album art
+  if (!await ensureToken()) return;
+  const arts = [];
+  for (const key of topKeys.slice(0, 10)) {
+    try {
+      const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(key)}&type=track&limit=1`);
+      if (!r || !r.ok) continue;
+      const d = await r.json();
+      const art = d.tracks?.items?.[0]?.album?.images?.[0]?.url;
+      if (art) arts.push(art);
+    } catch(e) {}
+  }
+  attractBgArts = arts;
+  if (arts.length) rotateAttractBg();
+}
+
+function rotateAttractBg() {
+  if (!attractBgArts.length) return;
+  const bg = document.getElementById('attract-bg');
+  if (!bg) return;
+  bg.style.backgroundImage = `url(${attractBgArts[attractBgIdx % attractBgArts.length]})`;
+  attractBgIdx++;
+  attractBgTimer = setTimeout(rotateAttractBg, 4000);
+}
+
+function stopAttractBg() {
+  if (attractBgTimer) { clearTimeout(attractBgTimer); attractBgTimer = null; }
+}
+
 // ── REVENUE TRACKING ──
 function getRevenue() {
   try { return JSON.parse(localStorage.getItem('jukebox_revenue') || '{}'); } catch(e) { return {}; }
@@ -1438,6 +1493,7 @@ async function init() {
   if (await ensureToken()) {
     showScreen('attract');
     startKeepAlive();
+    loadAttractArts();
 
     // Restore happens after SDK is ready — see initPlayer() ready callback
   } else {
