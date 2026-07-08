@@ -599,6 +599,10 @@
       <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
     </div>
     <div class="settings-row">
+      <div class="settings-label">Coin / card input<small>Current: <span id="coin-key-display">T</span></small></div>
+      <button class="s-btn" id="coin-map-btn" onclick="startCoinMapping()">Remap</button>
+    </div>
+    <div class="settings-row">
       <div class="settings-label">Change PIN<small>Must be 4 digits</small></div>
       <button class="s-btn" onclick="settingsChangePin()">Change</button>
     </div>
@@ -651,6 +655,8 @@ let credits = 0;
 let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
 let creditsPerSong = parseInt(localStorage.getItem('jukebox_cps') || '1');
 let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
+let coinKey = localStorage.getItem('jukebox_coin_key') || 't';
+let coinKeyLabel = localStorage.getItem('jukebox_coin_key_label') || 'T';
 let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
 let refreshTimer = null, refreshBusy = false;
@@ -720,6 +726,7 @@ function showScreen(id) {
     if (ad) { ad.classList.remove('fly-out'); ad.classList.add('fly-in'); setTimeout(() => ad.classList.remove('fly-in'), 600); }
     stopAttractBg();
     loadAttractArts();
+    startGamepadCoinPoll();
   } else {
     stopAttractBg();
   }
@@ -1058,7 +1065,21 @@ async function doSearch(q, resultsId, statusId, small) {
 
 // ── T KEY / CARD TAP ──
 document.addEventListener('keydown', e => {
-  if (e.key !== 't' && e.key !== 'T') return;
+  // Coin key mapping
+  if (listeningForCoinKey) {
+    e.preventDefault();
+    coinKey = e.key.toLowerCase();
+    coinKeyLabel = e.key.length === 1 ? e.key.toUpperCase() : e.code;
+    localStorage.setItem('jukebox_coin_key', coinKey);
+    localStorage.setItem('jukebox_coin_key_label', coinKeyLabel);
+    listeningForCoinKey = false;
+    const el = document.getElementById('coin-key-display');
+    if (el) el.textContent = coinKeyLabel;
+    const btn = document.getElementById('coin-map-btn');
+    if (btn) { btn.textContent = 'Remap'; btn.style.background = ''; }
+    return;
+  }
+  if (e.key.toLowerCase() !== coinKey) return;
   e.preventDefault();
   coinSound();
   credits += creditsPerTap;
@@ -1099,6 +1120,7 @@ function checkPin(val) {
 
 function openSettings() {
   document.getElementById('s-credits-loaded').textContent = credits + ' credits';
+  const ckd = document.getElementById('coin-key-display'); if (ckd) ckd.textContent = coinKeyLabel;
   document.getElementById('cpt-val').textContent = creditsPerTap;
   document.getElementById('cps-val').textContent = creditsPerSong;
   const rev = getRevenueReport();
@@ -1138,6 +1160,42 @@ async function settingsResetQueue() {
   const url = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
   await api(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: ['spotify:track:2grjqo0Frpf2okIBiifQKs'] }) });
   closeSettings();
+}
+
+function startCoinMapping() {
+  listeningForCoinKey = true;
+  const btn = document.getElementById('coin-map-btn');
+  if (btn) { btn.textContent = 'Press any key...'; btn.style.background = 'rgba(29,185,84,0.2)'; }
+  // Also detect gamepad buttons
+  const gpInterval = setInterval(() => {
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const gp of gamepads) {
+      if (!gp) continue;
+      gp.buttons.forEach((btn, idx) => {
+        if (btn.pressed && listeningForCoinKey) {
+          coinKey = `gamepad_${idx}`;
+          coinKeyLabel = `Gamepad B${idx}`;
+          localStorage.setItem('jukebox_coin_key', coinKey);
+          localStorage.setItem('jukebox_coin_key_label', coinKeyLabel);
+          listeningForCoinKey = false;
+          clearInterval(gpInterval);
+          const el = document.getElementById('coin-key-display');
+          if (el) el.textContent = coinKeyLabel;
+          const mapBtn = document.getElementById('coin-map-btn');
+          if (mapBtn) { mapBtn.textContent = 'Remap'; mapBtn.style.background = ''; }
+        }
+      });
+    }
+  }, 50);
+  // Stop listening after 10s
+  setTimeout(() => {
+    if (listeningForCoinKey) {
+      listeningForCoinKey = false;
+      clearInterval(gpInterval);
+      const btn = document.getElementById('coin-map-btn');
+      if (btn) { btn.textContent = 'Remap'; btn.style.background = ''; }
+    }
+  }, 10000);
 }
 
 function settingsChangePin() {
@@ -1292,6 +1350,7 @@ function getRevenueReport() {
 
 // ── STAFF PANEL ──
 let staffSearchTimer = null;
+let listeningForCoinKey = false;
 let staffPlaying = false;
 
 function openStaff() {
@@ -1474,6 +1533,30 @@ function retryFromError() {
 }
 
 // ── KEEP ALIVE ──
+function startGamepadCoinPoll() {
+  setInterval(() => {
+    if (!coinKey.startsWith('gamepad_')) return;
+    const idx = parseInt(coinKey.replace('gamepad_', ''));
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const gp of gamepads) {
+      if (!gp || !gp.buttons[idx]) continue;
+      if (gp.buttons[idx].pressed && !gp.buttons[idx]._wasPressed) {
+        gp.buttons[idx]._wasPressed = true;
+        // Trigger coin
+        coinSound();
+        credits += creditsPerTap;
+        updateCredits();
+        updateAttractText();
+        trackCreditInserted();
+        if (isPlaying) { const sp = document.getElementById('split-panel'); if (!sp.classList.contains('open')) openSplit(); }
+        else if (currentScreen === 'attract') openSearch();
+      } else if (!gp.buttons[idx].pressed) {
+        gp.buttons[idx]._wasPressed = false;
+      }
+    }
+  }, 50);
+}
+
 function startKeepAlive() {
   setInterval(() => { if (isPlaying) fetchQueue(); }, 8000);
   setInterval(async () => {
