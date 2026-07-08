@@ -236,20 +236,24 @@
     /* ── ON-SCREEN KEYBOARD ── */
     .osk-wrap {
       position: relative; z-index: 1;
-      padding: 10px 12px 14px;
+      padding: 10px 0 14px;
       border-top: 1px solid rgba(255,255,255,0.07);
       background: transparent;
       flex-shrink: 0;
-      width: 100%;
+      display: flex;
+      justify-content: center;
     }
-    .osk { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-    .osk-row { display: flex; gap: 6px; width: 100%; }
+    .osk {
+      display: flex; flex-direction: column; gap: 8px;
+      width: 780px; max-width: 100%;
+    }
+    .osk-row { display: flex; gap: 6px; justify-content: center; }
     .osk-key {
-      height: 48px;
-      flex: 1;
+      width: 68px; height: 48px;
+      flex-shrink: 0;
       border-radius: 8px;
       border: none;
-      background: #3a3a3c;
+      background: rgba(58,58,60,0.92);
       color: #fff;
       font-size: 17px;
       font-weight: 500;
@@ -257,27 +261,26 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       display: flex; align-items: center; justify-content: center;
       user-select: none; -webkit-user-select: none;
-      box-shadow: 0 2px 0 rgba(0,0,0,0.5);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.6);
       transition: filter 0.05s;
-      min-width: 0;
     }
-    .osk-key:active { filter: brightness(1.5); transform: translateY(1px); box-shadow: none; }
-    .osk-key.key-space {
-      background: #3a3a3c;
-      flex: 5;
-      font-size: 14px;
-      color: rgba(255,255,255,0.4);
-    }
+    .osk-key:active { filter: brightness(1.6); transform: translateY(1px); box-shadow: none; }
     .osk-key.key-del {
-      background: #636366;
+      background: rgba(99,99,102,0.92);
       font-size: 20px;
-      flex: 1.5;
+      width: 96px;
+    }
+    .osk-key.key-space {
+      background: rgba(58,58,60,0.92);
+      width: 340px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.35);
     }
     .osk-key.key-clear {
-      background: rgba(200,40,40,0.7);
+      background: rgba(180,30,30,0.85);
       font-size: 13px;
       font-weight: 700;
-      flex: 1.5;
+      width: 96px;
     }
 
     /* ── STAFF PANEL ── */
