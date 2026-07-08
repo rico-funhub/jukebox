@@ -109,7 +109,7 @@
     }
     .split-input:focus { border-color: #1DB954; }
     .split-input::placeholder { color: rgba(255,255,255,0.2); }
-    .split-results { flex: 1; overflow-y: auto; list-style: none; padding: 0.5rem 0; }
+    .split-results { flex: 1; overflow-y: auto; list-style: none; padding: 0.5rem 0 80px; }
     .split-result { display: flex; align-items: center; gap: 14px; padding: 13px 2rem; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .split-result:last-child { border-bottom: none; }
     .split-result:hover, .split-result:active { background: rgba(255,255,255,0.05); }
@@ -138,7 +138,7 @@
     .search-input::placeholder { color: rgba(255,255,255,0.2); }
     .search-cancel { background: none; color: rgba(255,255,255,0.4); border: none; font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit; padding: 10px; white-space: nowrap; flex-shrink: 0; }
     .search-cancel:hover { color: #fff; }
-    .search-results-wrap { flex: 1; width: 100%; overflow-y: auto; padding: 0.75rem 2.5rem; }
+    .search-results-wrap { flex: 1; width: 100%; overflow-y: auto; padding: 0.75rem 2.5rem 5rem; }
     .search-results { list-style: none; }
     .search-result { display: flex; align-items: center; gap: 18px; padding: 16px 12px; border-radius: 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .search-result:last-child { border-bottom: none; }
@@ -151,6 +151,7 @@
     .search-play-btn { width: 50px; height: 50px; border-radius: 50%; background: #1DB954; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .search-play-btn:active { transform: scale(0.9); }
     .search-status { font-size: 16px; color: rgba(255,255,255,0.25); padding: 3rem 0; text-align: center; }
+    #screen-search::after { content: ''; position: fixed; bottom: 0; left: 0; right: 0; height: 100px; background: linear-gradient(to top, #080808 0%, transparent 100%); pointer-events: none; z-index: 10; }
 
     /* ── CREDITS BADGE ── */
     .credits-badge {
@@ -352,10 +353,8 @@
   if (new URLSearchParams(window.location.search).get('reset') === '1') {
     sessionStorage.clear();
     window.history.replaceState(null, '', window.location.pathname);
-    document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById('screen-auth').classList.add('active');
-    });
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-auth').classList.add('active');
   }
 })();
 
@@ -834,7 +833,7 @@ function startKeepAlive() {
 
 // ── INIT ──
 async function init() {
-  if (new URLSearchParams(window.location.search).get('reset') === '1') return;
+  if (new URLSearchParams(window.location.search).get('reset') === '1') { showScreen('auth'); return; }
 
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code'), state = params.get('state');
