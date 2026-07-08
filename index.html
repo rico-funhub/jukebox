@@ -14,7 +14,7 @@
     /* AUTH */
     #screen-auth { gap: 2rem; text-align: center; }
     #screen-auth p { font-size: 16px; color: #666; }
-    .funhub-logo { width: 140px; object-fit: contain; }
+    .funhub-logo { width: 180px; object-fit: contain; }
     .btn-green { background: #1DB954; color: #fff; border: none; border-radius: 32px; padding: 18px 52px; font-size: 18px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .btn-green:hover { background: #1ed760; }
 
@@ -28,8 +28,8 @@
     /* NOW PLAYING */
     #screen-playing { flex-direction: row; align-items: center; justify-content: center; position: relative; overflow: hidden; }
     .playing-bg { position: absolute; inset: 0; background-size: cover; background-position: center; filter: blur(48px) brightness(0.2); transform: scale(1.15); z-index: 0; }
-    .playing-left { flex: 1.5; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 2rem; gap: 1.25rem; height: 100vh; border-right: 1px solid rgba(255,255,255,0.06); position: relative; z-index: 1; }
-    .playing-logo { width: 100px; opacity: 0.6; object-fit: contain; }
+    .playing-left { flex: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 2rem; gap: 1.25rem; height: 100vh; border-right: 1px solid rgba(255,255,255,0.06); position: relative; z-index: 1; }
+    .playing-logo { width: 140px; opacity: 0.85; object-fit: contain; }
     .now-badge { font-size: 12px; font-weight: 700; letter-spacing: 0.2em; color: #1DB954; text-transform: uppercase; }
     .disc-wrapper { position: relative; width: min(300px, 35vw); height: min(300px, 35vw); }
     .disc { width: 100%; height: 100%; border-radius: 50%; background: #111; border: 4px solid rgba(255,255,255,0.08); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -40,12 +40,12 @@
     .disc-center { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #0a0a0a; border: 2px solid rgba(255,255,255,0.2); z-index: 3; }
     .playing-track { font-size: clamp(22px, 3.5vw, 38px); font-weight: 800; color: #fff; text-align: center; line-height: 1.2; max-width: 360px; }
     .playing-artist { font-size: clamp(15px, 2.2vw, 22px); color: rgba(255,255,255,0.55); text-align: center; }
-    .tap-add { font-size: clamp(14px, 1.8vw, 20px); font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: center; animation: fadepulse 2.5s ease-in-out infinite; margin-top: 1rem; }
+    .tap-add { font-size: clamp(14px, 1.8vw, 20px); font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.5); text-transform: uppercase; text-align: center; animation: zoom 2.5s ease-in-out infinite; margin-top: 1rem; display: inline-block; }
     @keyframes fadepulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
     /* QUEUE */
-    .playing-right { width: 300px; height: 100vh; display: flex; flex-direction: column; padding: 2.5rem 1.75rem; overflow-y: auto; position: relative; z-index: 1; }
-    .queue-logo { width: 80px; opacity: 0.3; object-fit: contain; margin-bottom: 1.5rem; }
+    .playing-right { width: 40%; max-width: 420px; height: 100vh; display: flex; flex-direction: column; padding: 2.5rem 1.75rem; overflow-y: auto; position: relative; z-index: 1; }
+    .queue-logo { width: 110px; opacity: 0.5; object-fit: contain; margin-bottom: 1.5rem; }
     .queue-heading { font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 1rem; }
     .queue-list { list-style: none; }
     .queue-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -59,7 +59,7 @@
     .queue-empty { font-size: 13px; color: rgba(255,255,255,0.15); padding: 0.5rem 0; }
 
     /* SPLIT SEARCH */
-    .split-panel { width: 380px; height: 100vh; display: none; flex-direction: column; position: relative; z-index: 1; border-left: 1px solid rgba(255,255,255,0.06); }
+    .split-panel { width: 40%; max-width: 420px; height: 100vh; display: none; flex-direction: column; position: relative; z-index: 1; border-left: 1px solid rgba(255,255,255,0.06); }
     .split-panel.open { display: flex; }
     .split-top { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
     .split-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px 16px; font-size: 17px; color: #fff; font-family: inherit; outline: none; }
@@ -77,14 +77,14 @@
     .split-status { font-size: 13px; color: rgba(255,255,255,0.25); text-align: center; padding: 1.5rem; }
 
     /* SEARCH */
-    #screen-search { flex-direction: column; background: #0d0d0d; }
-    .search-top { width: 100%; padding: 2rem 3rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 1.25rem; }
+    #screen-search { flex-direction: column; background: #0a0a0a; }
+    .search-top { width: 100%; padding: 2rem 3rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 1.25rem; background: #0a0a0a; }
     .search-input { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 18px 22px; font-size: 22px; color: #fff; font-family: inherit; outline: none; }
     .search-input:focus { border-color: #1DB954; }
     .search-input::placeholder { color: rgba(255,255,255,0.2); }
     .search-cancel { background: none; color: rgba(255,255,255,0.35); border: none; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; padding: 16px 4px; white-space: nowrap; }
     .search-cancel:hover { color: #fff; }
-    .search-results-wrap { flex: 1; width: 100%; overflow-y: auto; padding: 0.5rem 3rem; }
+    .search-results-wrap { flex: 1; width: 100%; overflow-y: auto; padding: 0.5rem 3rem; background: #0a0a0a; }
     .search-results { list-style: none; padding: 0.5rem 0; }
     .search-result { display: flex; align-items: center; gap: 16px; padding: 16px 14px; border-radius: 10px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .search-result:last-child { border-bottom: none; }
@@ -103,11 +103,11 @@
 
     /* LANG */
     .lang-switcher { position: fixed; bottom: 1.5rem; left: 1.5rem; display: flex; gap: 6px; z-index: 100; }
-    .lang-btn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 8px 16px; font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.35); cursor: pointer; font-family: inherit; }
-    .lang-btn.active { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); color: #fff; }
+    .lang-btn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 50%; width: 44px; height: 44px; font-size: 22px; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; opacity: 0.45; transition: all 0.15s; }
+    .lang-btn.active { opacity: 1; border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.12); }
 
     /* AUDIO */
-    .audio-badge { position: fixed; top: 1.25rem; right: 1.5rem; font-size: 11px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; }
+    .audio-badge { position: fixed; top: 1.25rem; left: 1.5rem; font-size: 11px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; }
   </style>
 </head>
 <body>
@@ -156,6 +156,7 @@
 
 <div id="screen-search" class="screen">
   <div class="search-top">
+    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" style="height:32px;opacity:0.7;object-fit:contain;flex-shrink:0;" alt="FUNHUB" />
     <input id="search-input" class="search-input" type="text" placeholder="Search for a song or artist..." autocomplete="off" oninput="liveSearch(this.value)" />
     <button class="search-cancel" id="search-cancel" onclick="closeSearch()">Cancel</button>
   </div>
@@ -167,9 +168,9 @@
 
 <div class="credits-badge" id="credits-badge"><div class="credits-dot"></div><span id="credits-text">0 credits</span></div>
 <div class="lang-switcher">
-  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
-  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
-  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')" title="English">🇨🇦</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')" title="Français">🇫🇷</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')" title="Español">🇲🇽</button>
 </div>
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
 
