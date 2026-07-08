@@ -460,7 +460,7 @@
 </div>
 
 <!-- ATTRACT -->
-<div id="screen-attract" class="screen">
+<div id="screen-attract" class="screen" onclick="attractTap()">
   <div id="attract-bg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(60px) brightness(0.15);transform:scale(1.15);z-index:0;transition:background-image 1.5s ease;"></div>
   <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:1.5rem;">
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="attract-logo" alt="FUNHUB" />
@@ -601,7 +601,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.2.1</p>
+<p class="version-badge">v1.3.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -722,26 +722,28 @@ let oskEnabled = localStorage.getItem('jukebox_osk') !== 'off';
 let coinKeyLabel = localStorage.getItem('jukebox_coin_key_label') || 'T';
 let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
+let idleTimer = null;
+const IDLE_MS = 120000;
 let refreshTimer = null, refreshBusy = false;
 
 // ── LANGUAGE ──
 const T = {
   en: {
-    tap: 'TAP YOUR CARD', tapPlay: 'TAP TO PLAY!', sub: 'to pick a song!',
+    tap: 'TAP YOUR CARD', tapPlay: 'TAP TO SEARCH', sub: 'to pick a song!',
     nowPlaying: 'Now playing', upNext: 'Up next',
     tapAdd: 'TAP YOUR CARD TO ADD A SONG!',
     searchPh: 'What song do you want?', searching: 'Searching...', noResults: 'No results found.', back: 'Back',
     splitPh: 'Search for a song...', queueEmpty: 'Tap your card to add\nthe next song!'
   },
   fr: {
-    tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TAPPEZ POUR JOUER!', sub: 'pour choisir une chanson!',
+    tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TAPPEZ POUR CHERCHER', sub: 'pour choisir une chanson!',
     nowPlaying: 'En cours', upNext: 'À venir',
     tapAdd: 'TAPPEZ VOTRE CARTE POUR AJOUTER UNE CHANSON!',
     searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche en cours...', noResults: 'Aucun résultat.', back: 'Retour',
     splitPh: 'Rechercher une chanson...', queueEmpty: 'Tappez votre carte pour ajouter\nla prochaine chanson!'
   },
   es: {
-    tap: 'ACERQUE SU TARJETA', tapPlay: '¡ACERQUE SU TARJETA!', sub: '¡para elegir una canción!',
+    tap: 'ACERQUE SU TARJETA', tapPlay: 'TOQUE PARA BUSCAR', sub: '¡para elegir una canción!',
     nowPlaying: 'Reproduciendo', upNext: 'A continuación',
     tapAdd: '¡ACERQUE SU TARJETA PARA AGREGAR UNA CANCIÓN!',
     searchPh: '¿Qué canción quieres escuchar?', searching: 'Buscando...', noResults: 'Sin resultados.', back: 'Atrás',
@@ -762,6 +764,10 @@ function setLang(l) {
   const sc = document.getElementById('search-cancel'); if (sc) sc.textContent = t.back;
   const spi = document.getElementById('split-input'); if (spi) spi.placeholder = t.splitPh;
   const qe = document.getElementById('queue-empty-text'); if (qe) qe.innerHTML = t.queueEmpty.replace('\n','<br>');
+}
+
+function attractTap() {
+  if (credits > 0 && !isPlaying && currentScreen === 'attract') openSearch();
 }
 
 function updateAttractText() {
@@ -1044,6 +1050,7 @@ async function queueTrack(uri, name, artist, art) {
       await api(playUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
     }
 
+    clearIdle();
     credits = Math.max(0, credits - creditsPerSong);
     updateCredits();
     trackSongPlayed(name, artist, uri);
@@ -1079,12 +1086,14 @@ function openSearch() {
   document.getElementById('search-results').innerHTML = '';
   document.getElementById('search-status').textContent = '';
   showOsk('search-input');
+  resetIdle();
   if (!oskEnabled) setTimeout(() => si.focus(), 80);
 }
 
-function closeSearch() { hideOsk(); isPlaying ? showScreen('playing') : showScreen('attract'); }
+function closeSearch() { clearIdle(); hideOsk(); isPlaying ? showScreen('playing') : showScreen('attract'); }
 
 function liveSearch(val) {
+  resetIdle();
   clearTimeout(searchTimer);
   if (!val.trim()) { document.getElementById('search-results').innerHTML = ''; document.getElementById('search-status').textContent = ''; return; }
   document.getElementById('search-status').textContent = T[lang].searching;
@@ -1100,16 +1109,19 @@ function openSplit() {
   document.getElementById('split-results').innerHTML = '';
   document.getElementById('split-status').textContent = '';
   showOsk('split-input');
+  resetIdle();
   if (!oskEnabled) setTimeout(() => si.focus(), 80);
 }
 
 function closeSplit() {
+  clearIdle();
   hideOsk();
   document.getElementById('split-panel').classList.remove('open');
   document.getElementById('playing-right').style.display = 'flex';
 }
 
 function splitSearch(val) {
+  resetIdle();
   clearTimeout(splitTimer);
   if (!val.trim()) { document.getElementById('split-results').innerHTML = ''; document.getElementById('split-status').textContent = ''; return; }
   document.getElementById('split-status').textContent = T[lang].searching;
@@ -1347,6 +1359,22 @@ function renderBlacklist() {
 }
 
 
+
+// ── IDLE TIMEOUT ──
+function resetIdle() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(idleReturn, IDLE_MS);
+}
+
+function clearIdle() {
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+}
+
+function idleReturn() {
+  clearIdle();
+  if (currentScreen === 'search') closeSearch();
+  else if (document.getElementById('split-panel').classList.contains('open')) closeSplit();
+}
 
 // ── ON-SCREEN KEYBOARD ──
 let oskActiveInput = null;
