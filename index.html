@@ -438,7 +438,14 @@
 
 <!-- NOW PLAYING -->
 <div id="screen-playing" class="screen">
-  <div class="playing-left">
+  <div id="playing-bg" style="
+    position:absolute;inset:0;
+    background-size:cover;background-position:center;
+    filter:blur(40px) brightness(0.25);
+    transform:scale(1.1);
+    z-index:0;
+  "></div>
+  <div class="playing-left" style="position:relative;z-index:1;">
     <p class="playing-label" id="playing-label">Now playing</p>
     <div class="disc-wrapper">
       <div class="disc" id="disc">
@@ -455,7 +462,7 @@
     <button class="start-btn" id="start-btn" onclick="handleStart()" style="display:none">▶ Start</button>
     <p class="tap-more" id="tap-more" style="display:none">TAP YOUR CARD TO ADD TO THE QUEUE</p>
   </div>
-  <div class="playing-right">
+  <div class="playing-right" style="position:relative;z-index:1;">
     <p class="queue-heading">Up next</p>
     <ul class="queue-list" id="queue-list">
       <li class="queue-empty">Queue is empty</li>
@@ -652,12 +659,15 @@ function onStateChange(state) {
   const img = document.getElementById('art-img');
   const discPlaceholder = document.getElementById('disc-placeholder');
   const disc = document.getElementById('disc');
+  const bg = document.getElementById('playing-bg');
   if (art) {
     img.src = art; img.style.display = 'block';
     if (discPlaceholder) discPlaceholder.style.display = 'none';
+    if (bg) bg.style.backgroundImage = `url(${art})`;
   } else {
     img.style.display = 'none';
     if (discPlaceholder) discPlaceholder.style.display = 'flex';
+    if (bg) bg.style.backgroundImage = 'none';
   }
   if (disc) disc.classList.add('spinning');
 
