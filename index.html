@@ -207,13 +207,14 @@
     }
 
     .tap-more {
-      font-size: 13px;
+      font-size: clamp(13px, 1.8vw, 18px);
       font-weight: 700;
       letter-spacing: 0.15em;
-      color: #333;
+      color: #555;
       text-transform: uppercase;
-      animation: attractpulse 2.5s ease-in-out infinite;
-      margin-top: 0.5rem;
+      animation: attractpulse 2s ease-in-out infinite;
+      text-align: center;
+      margin-top: 1.5rem;
     }
 
     /* START BTN — shows when paused */
@@ -452,7 +453,7 @@
     <div id="playing-track" class="playing-track"></div>
     <div id="playing-artist" class="playing-artist"></div>
     <button class="start-btn" id="start-btn" onclick="handleStart()" style="display:none">▶ Start</button>
-    <p class="tap-more" id="tap-more" style="display:none">TAP YOUR CARD TO ADD MORE</p>
+    <p class="tap-more" id="tap-more" style="display:none">TAP YOUR CARD TO ADD TO THE QUEUE</p>
   </div>
   <div class="playing-right">
     <p class="queue-heading">Up next</p>
@@ -663,6 +664,7 @@ function onStateChange(state) {
   document.getElementById('playing-label').textContent = 'Now playing';
   document.getElementById('start-btn').style.display = 'none';
   document.getElementById('tap-more').style.display = 'block';
+  document.getElementById('tap-more').textContent = 'TAP YOUR CARD TO ADD TO THE QUEUE';
 
   if (currentScreen !== 'search' && currentScreen !== 'confirm') {
     showScreen('playing');
@@ -826,19 +828,9 @@ async function queueTrack(uri, name, artist, art) {
       queuedUris.add(uri);
     }
 
-    // Show confirm
-    document.getElementById('confirm-track').textContent = name;
-    document.getElementById('confirm-artist').textContent = artist;
-    const img = document.getElementById('confirm-img');
-    if (art) { img.src = art; img.style.display = 'block'; }
-    else { img.style.display = 'none'; }
-    showScreen('confirm');
-
-    setTimeout(() => {
-      fetchQueue();
-      if (isPlaying) showScreen('playing');
-      else showScreen('attract');
-    }, 2500);
+    // Go straight to now playing
+    showScreen('playing');
+    setTimeout(fetchQueue, 600);
 
   } catch(e) {
     console.error(e);
