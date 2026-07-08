@@ -669,7 +669,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.2.0</p>
+<p class="version-badge">v1.2.1</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -712,7 +712,7 @@
       </div>
     </div>
     <div class="settings-row">
-      <div class="settings-label">Reset queue<small>Plays September — clears everything</small></div>
+      <div class="settings-label">Reset playback<small>Stops current song, starts fresh with September</small></div>
       <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
     </div>
     <div class="settings-row">
@@ -1601,7 +1601,7 @@ function liveSearch(val) {
   clearTimeout(searchTimer);
   if (val.trim().length < 2) { document.getElementById('search-results').innerHTML = ''; document.getElementById('search-status').textContent = ''; return; }
   document.getElementById('search-status').textContent = T[lang].searching;
-  searchTimer = setTimeout(() => doSearch(val.trim(), 'search-results', 'search-status', false), 500);
+  searchTimer = setTimeout(() => doSearch(val.trim(), 'search-results', 'search-status', false), 750);
 }
 
 // ── SPLIT SEARCH ──
@@ -1629,7 +1629,7 @@ function splitSearch(val) {
   clearTimeout(splitTimer);
   if (val.trim().length < 2) { document.getElementById('split-results').innerHTML = ''; document.getElementById('split-status').textContent = ''; return; }
   document.getElementById('split-status').textContent = T[lang].searching;
-  splitTimer = setTimeout(() => doSearch(val.trim(), 'split-results', 'split-status', true), 500);
+  splitTimer = setTimeout(() => doSearch(val.trim(), 'split-results', 'split-status', true), 750);
 }
 
 // ── SHARED SEARCH ──
@@ -1784,7 +1784,12 @@ function settingsClearCredits() {
 
 async function settingsResetQueue() {
   if (!await ensureToken()) return;
+  // Spotify's Web API has NO "clear queue" endpoint. The reliable workaround is
+  // to start a fresh single-track context, which stops the current song and, on
+  // most devices, drops the pending manual queue behind it. Songs already queued
+  // may survive on some Connect devices — the API gives us no way to force-clear.
   await forcePlay('spotify:track:2grjqo0Frpf2okIBiifQKs');
+  setTimeout(fetchQueue, 2000);
   closeSettings();
 }
 
@@ -1979,7 +1984,7 @@ const HELP = {
       <li style="margin-bottom:0.75rem;"><strong>Playback</strong> — <em>In-app player</em>: audio comes from this kiosk. <em>External device</em>: kiosk sends songs to another Spotify device (desktop app, speaker) and audio plays there.</li>
       <li style="margin-bottom:0.75rem;"><strong>Target device</strong> — (external only) which Spotify device plays. Pick from the list. ⚠️ means none chosen — guests can't play until you pick one.</li>
       <li style="margin-bottom:0.75rem;"><strong>App key</strong> — the Spotify Client ID the jukebox runs on. Changing it reconnects Spotify. The app needs the kiosk's Redirect URI set in Spotify's dashboard, and a Premium account.</li>
-      <li style="margin-bottom:0.75rem;"><strong>Reset queue (September)</strong> — clears the queue and plays one song, a quick "reset to known state".</li>
+      <li style="margin-bottom:0.75rem;"><strong>Reset playback (September)</strong> — stops whatever's playing and starts fresh with one song. Note: Spotify's API has no "clear queue" command, so songs a guest already queued may still play after September on some devices. This is a Spotify limitation, not a bug.</li>
       <li style="margin-bottom:0.75rem;"><strong>On-screen keyboard</strong> — the built-in touch keyboard. Off = a physical keyboard is used.</li>
       <li style="margin-bottom:0.75rem;"><strong>Coin / card input</strong> — which key/button the card reader sends. Remap if the reader changes.</li>
       <li style="margin-bottom:0.75rem;"><strong>Change PIN</strong> — the 4-digit staff PIN for settings and unlock.</li>
