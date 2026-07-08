@@ -220,26 +220,26 @@
       position: relative;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden;
-      transform: translateX(-120vw);
       opacity: 0;
     }
     .disc.slide-in {
-      animation: discSlideIn 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+      animation: discSlideIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
-    .disc.slide-in.spinning {
-      animation: discSlideIn 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards,
-                 spin 5s linear 0.7s infinite;
+    .disc.spinning {
+      animation: discSlideIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+                 spin 6s linear 1.2s infinite;
     }
     .disc.slide-out {
-      animation: discSlideOut 0.6s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+      animation: discSlideOut 0.9s cubic-bezier(0.55, 0, 1, 0.45) forwards;
     }
     @keyframes discSlideIn {
-      0% { transform: translateX(-120vw) rotate(-180deg); opacity: 0; }
-      100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+      0% { transform: translateX(-110vw); opacity: 0; }
+      60% { opacity: 1; }
+      100% { transform: translateX(0); opacity: 1; }
     }
     @keyframes discSlideOut {
-      0% { transform: translateX(0) rotate(0deg); opacity: 1; }
-      100% { transform: translateX(60vw) rotate(180deg); opacity: 0; }
+      0% { transform: translateX(0); opacity: 1; }
+      100% { transform: translateX(55vw); opacity: 0; }
     }
     .disc img {
       position: absolute; inset: 0;
@@ -879,9 +879,10 @@ function onState(state) {
       // Slide disc out before switching screen
       const disc = document.getElementById('disc');
       if (disc) {
-        disc.classList.remove('slide-in');
+        disc.classList.remove('slide-in', 'spinning');
+        void disc.offsetWidth;
         disc.classList.add('slide-out');
-        setTimeout(() => showScreen('attract'), 500);
+        setTimeout(() => showScreen('attract'), 900);
       } else {
         showScreen('attract');
       }
@@ -901,8 +902,12 @@ function onState(state) {
   const disc = document.getElementById('disc');
   disc.classList.remove('slide-in', 'slide-out', 'spinning');
   void disc.offsetWidth;
+  // Start slide-in, then add spinning class after it settles
   disc.classList.add('slide-in');
-  setTimeout(() => disc.classList.add('spinning'), 700);
+  setTimeout(() => {
+    disc.classList.remove('slide-in');
+    disc.classList.add('spinning');
+  }, 1200);
   saveState(track.name, track.artists.map(a=>a.name).join(', '), art);
   if (currentScreen !== 'search') showScreen('playing');
   fetchQueue();
