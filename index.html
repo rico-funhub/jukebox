@@ -178,7 +178,7 @@
 <div id="screen-attract" class="screen">
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="funhub-logo" alt="FUNHUB" />
   <p class="attract-tap" id="attract-tap">TAP YOUR CARD</p>
-  <p class="attract-credits" id="attract-credits">24 credits per tap</p>
+  <p class="attract-credits" id="attract-credits">24 Credits</p>
   <p class="attract-sub" id="attract-sub">to request a song</p>
 </div>
 
@@ -357,7 +357,7 @@ function showScreen(id) {
 
 function updateAttract() {
   const ac = document.getElementById('attract-credits');
-  if (ac) ac.textContent = creditsPerTap + ' credits per tap';
+  if (ac) ac.textContent = creditsPerTap + ' Credits';
   const t = T[lang];
   const tapEl = document.getElementById('attract-tap');
   if (!tapEl) return;
@@ -677,7 +677,7 @@ function adjustCpt(delta) {
   localStorage.setItem('jukebox_credits_per_tap', creditsPerTap);
   document.getElementById('cpt-display').textContent = creditsPerTap;
   const el = document.getElementById('attract-credits');
-  if (el) el.textContent = creditsPerTap + ' credits per tap';
+  if (el) el.textContent = creditsPerTap + ' Credits';
 }
 
 function adjustCps(delta) {
