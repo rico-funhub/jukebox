@@ -478,7 +478,15 @@
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="auth-logo" alt="FUNHUB" />
   <p class="auth-sub">Connect Spotify to start the jukebox</p>
   <button class="btn-green" onclick="startAuth()">Connect Spotify</button>
-  <button onclick="openSetup()" style="margin-top:0.75rem;background:none;border:none;color:rgba(255,255,255,0.4);font-size:13px;text-decoration:underline;cursor:pointer;font-family:inherit;">Fix / re-enter app keys</button>
+  <button onclick="toggleAuthHelp()" id="auth-help-toggle" style="margin-top:1rem;background:none;border:none;color:rgba(255,255,255,0.45);font-size:14px;cursor:pointer;font-family:inherit;">▸ Having issues connecting?</button>
+  <div id="auth-help" style="display:none;max-width:440px;margin:0.75rem auto 0;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.1rem 1.25rem;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.65);text-align:left;">
+    <p style="margin-bottom:0.6rem;"><strong style="color:rgba(255,255,255,0.85);">Login won't open, or says "redirect_uri not matching"?</strong></p>
+    <p style="margin-bottom:0.6rem;">The Spotify app for this key needs the kiosk's address on its allowed list. In the Spotify Developer Dashboard, open the app → Settings → Redirect URIs → add exactly:</p>
+    <code style="display:block;background:rgba(0,0,0,0.4);padding:8px 10px;border-radius:8px;margin-bottom:0.6rem;word-break:break-all;font-size:12px;color:#8fd6a8;">https://rico-funhub.github.io/jukebox</code>
+    <p style="margin-bottom:0.9rem;">No trailing slash, https not http. Save, then try Connect again.</p>
+    <p style="margin-bottom:0.6rem;"><strong style="color:rgba(255,255,255,0.85);">Wrong key, or need to change it?</strong></p>
+    <button class="btn-green" onclick="openSetup()" style="width:100%;padding:12px;font-size:15px;">Re-enter app keys</button>
+  </div>
 </div>
 
 <!-- FIRST-RUN SETUP (no key yet) — also the pre-JS default so a load failure lands here, not on a dead Connect button -->
@@ -676,7 +684,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.2.3</p>
+<p class="version-badge">v1.2.4</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1089,6 +1097,15 @@ function openSetup() {
 function toggleSetupGuide() {
   const g = document.getElementById('setup-guide');
   if (g) g.style.display = g.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleAuthHelp() {
+  const h = document.getElementById('auth-help');
+  const t = document.getElementById('auth-help-toggle');
+  if (!h) return;
+  const open = h.style.display !== 'none';
+  h.style.display = open ? 'none' : 'block';
+  if (t) t.textContent = (open ? '▸' : '▾') + ' Having issues connecting?';
 }
 
 function saveSetupKey() {
