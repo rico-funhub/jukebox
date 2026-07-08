@@ -314,6 +314,111 @@
       text-align: center;
     }
 
+
+    /* ── CREDITS ── */
+    .credits-badge {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.05em;
+      z-index: 100;
+      transition: all 0.3s;
+    }
+    .credits-badge.has-credits {
+      background: rgba(29,185,84,0.15);
+      border-color: rgba(29,185,84,0.3);
+      color: #1DB954;
+    }
+    .credits-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ── SPLIT SCREEN ── */
+    #screen-playing.split {
+      flex-direction: row;
+    }
+    .playing-left.split-left {
+      flex: 1;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .playing-right.split-search {
+      width: 380px;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .split-search-top {
+      padding: 1.5rem 1.5rem 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .split-search-input {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 13px 16px;
+      font-size: 16px;
+      color: #fff;
+      font-family: inherit;
+      outline: none;
+    }
+    .split-search-input:focus { border-color: #1DB954; }
+    .split-search-input::placeholder { color: rgba(255,255,255,0.2); }
+    .split-search-results {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem 0;
+      list-style: none;
+    }
+    .split-result {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 1.5rem;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .split-result:last-child { border-bottom: none; }
+    .split-result:hover { background: rgba(255,255,255,0.05); }
+    .split-thumb {
+      width: 42px; height: 42px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      flex-shrink: 0; overflow: hidden;
+    }
+    .split-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .split-info { flex: 1; overflow: hidden; }
+    .split-track { font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .split-artist { font-size: 12px; color: rgba(255,255,255,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .split-play-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%; background: #1DB954;
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .split-play-btn:active { transform: scale(0.9); }
+    .split-status {
+      font-size: 13px; color: rgba(255,255,255,0.25);
+      text-align: center; padding: 1.5rem;
+    }
+
+    /* attract states */
+    .attract-tap.tap-to-play { color: #1DB954; }
+
     #sdk-status {
       position: fixed;
       bottom: 1rem; right: 1.5rem;
@@ -355,12 +460,19 @@
     <div id="playing-artist" class="playing-artist"></div>
     <p class="tap-add">Tap your card to add to the queue</p>
   </div>
-  <div class="playing-right">
+  <div class="playing-right" id="playing-right">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="queue-logo" alt="FUNHUB" />
     <p class="queue-heading">Up next</p>
     <ul class="queue-list" id="queue-list">
       <li class="queue-empty">Queue is empty</li>
     </ul>
+  </div>
+  <div id="split-search-panel" style="display:none;width:380px;height:100vh;flex-direction:column;position:relative;z-index:1;border-left:1px solid rgba(255,255,255,0.06);">
+    <div style="padding:1.5rem 1.5rem 1rem;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <input id="split-search-input" class="split-search-input" type="text" placeholder="Search for a song..." autocomplete="off" oninput="splitLiveSearch(this.value)" />
+    </div>
+    <p id="split-status" class="split-status">Start typing to search</p>
+    <ul id="split-results" class="split-search-results"></ul>
   </div>
 </div>
 
@@ -384,6 +496,7 @@
 </div>
 
 <p id="sdk-status"></p>
+<div class="credits-badge" id="credits-badge" style="display:none"><div class="credits-dot"></div><span id="credits-text">0 credits</span></div>
 
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
 <script>
@@ -405,6 +518,10 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + id).classList.add('active');
   currentScreen = id;
+  // Show credits badge on attract and playing screens
+  const badge = document.getElementById('credits-badge');
+  if (badge) badge.style.display = (credits > 0 && (id === 'attract' || id === 'playing')) ? 'flex' : 'none';
+  updateCreditsDisplay();
 }
 
 // ── AUTH ──
@@ -665,21 +782,139 @@ async function queueTrack(uri, name, artist, art) {
       });
     }
 
+    useCredit();
+    closeSplitSearch();
+
     // Go to playing screen
+    if (currentScreen === 'search') closeSearch();
     showScreen('playing');
     setTimeout(fetchQueue, 800);
 
   } catch(e) {
-    document.getElementById('search-status').textContent = 'Could not add song. Make sure Spotify is open.';
+    const statusEl = document.getElementById('search-status') || document.getElementById('split-status');
+    if (statusEl) statusEl.textContent = 'Could not add song. Make sure Spotify is open.';
+  }
+}
+
+
+// ── CREDITS ──
+let credits = 0;
+
+function updateCreditsDisplay() {
+  const badge = document.getElementById('credits-badge');
+  const text = document.getElementById('credits-text');
+  if (credits > 0) {
+    badge.style.display = 'flex';
+    badge.classList.add('has-credits');
+    text.textContent = credits === 1 ? '1 credit' : credits + ' credits';
+  } else {
+    badge.style.display = 'none';
+    badge.classList.remove('has-credits');
+  }
+
+  // Update attract message
+  const tapEl = document.querySelector('.attract-tap');
+  if (tapEl) {
+    if (credits > 0 && !isPlaying) {
+      tapEl.textContent = 'TAP TO PLAY';
+      tapEl.classList.add('tap-to-play');
+    } else {
+      tapEl.textContent = 'TAP YOUR CARD';
+      tapEl.classList.remove('tap-to-play');
+    }
+  }
+}
+
+function addCredit() {
+  credits++;
+  updateCreditsDisplay();
+  // If song is playing and we now have credits, show split search
+  if (isPlaying && credits > 0) {
+    openSplitSearch();
+  }
+}
+
+function useCredit() {
+  if (credits > 0) {
+    credits--;
+    updateCreditsDisplay();
+    return true;
+  }
+  return false;
+}
+
+// ── SPLIT SEARCH (while song playing) ──
+let splitSearchTimer = null;
+
+function openSplitSearch() {
+  const panel = document.getElementById('split-search-panel');
+  const right = document.getElementById('playing-right');
+  panel.style.display = 'flex';
+  panel.style.flexDirection = 'column';
+  right.style.display = 'none';
+  document.getElementById('split-search-input').value = '';
+  document.getElementById('split-results').innerHTML = '';
+  document.getElementById('split-status').textContent = 'Start typing to search';
+  setTimeout(() => document.getElementById('split-search-input').focus(), 80);
+}
+
+function closeSplitSearch() {
+  document.getElementById('split-search-panel').style.display = 'none';
+  document.getElementById('playing-right').style.display = 'flex';
+}
+
+function splitLiveSearch(val) {
+  clearTimeout(splitSearchTimer);
+  if (!val.trim()) {
+    document.getElementById('split-results').innerHTML = '';
+    document.getElementById('split-status').textContent = 'Start typing to search';
+    return;
+  }
+  document.getElementById('split-status').textContent = 'Searching...';
+  splitSearchTimer = setTimeout(() => doSplitSearch(val.trim()), 350);
+}
+
+async function doSplitSearch(q) {
+  if (!await ensureToken()) return;
+  document.getElementById('split-results').innerHTML = '';
+  try {
+    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8`, {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    const data = await res.json();
+    const tracks = data.tracks?.items || [];
+    document.getElementById('split-status').textContent = '';
+    if (!tracks.length) { document.getElementById('split-status').textContent = 'No results found.'; return; }
+    document.getElementById('split-results').innerHTML = tracks.map(t => {
+      const art = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
+      const safe = (s) => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      return `<li class="split-result" onclick="queueTrack('${safe(t.uri)}','${safe(t.name)}','${safe(t.artists.map(a=>a.name).join(', '))}','${safe(art)}')">
+        <div class="split-thumb">${art ? `<img src="${art}" alt="">` : ''}</div>
+        <div class="split-info">
+          <div class="split-track">${t.name}</div>
+          <div class="split-artist">${t.artists.map(a=>a.name).join(', ')}</div>
+        </div>
+        <button class="split-play-btn" aria-label="Play">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:white"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </li>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('split-status').textContent = 'Search failed.';
   }
 }
 
 // ── T KEY ──
 document.addEventListener('keydown', e => {
-  if (currentScreen === 'search') return;
   if (e.key === 't' || e.key === 'T') {
     e.preventDefault();
-    openSearch();
+    playCoinSound();
+    addCredit();
+    // If no song playing and we have a credit, open full search
+    if (!isPlaying && credits > 0) {
+      openSearch();
+    }
+    // If song playing, addCredit() already opens split search
   }
 });
 
