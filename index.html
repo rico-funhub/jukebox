@@ -625,19 +625,54 @@ function saveTokens(data) {
   sessionStorage.setItem('spotify_token', accessToken);
   if (refreshToken) sessionStorage.setItem('spotify_refresh', refreshToken);
   sessionStorage.setItem('spotify_expiry', tokenExpiry);
+  scheduleTokenRefresh(data.expires_in - 120);
+}
+
+let refreshTimer = null;
+let refreshInProgress = false;
+
+function scheduleTokenRefresh(secondsUntilRefresh) {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  const ms = Math.max(secondsUntilRefresh * 1000, 10000);
+  refreshTimer = setTimeout(async () => {
+    await refreshAccessToken();
+  }, ms);
 }
 
 async function refreshAccessToken() {
-  const rt = refreshToken || sessionStorage.getItem('spotify_refresh');
-  if (!rt) { showScreen('auth'); return false; }
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt, client_id: CLIENT_ID })
-  });
-  const data = await res.json();
-  if (data.access_token) { saveTokens(data); return true; }
-  showScreen('auth'); return false;
+  if (refreshInProgress) return !!accessToken;
+  refreshInProgress = true;
+  try {
+    const rt = refreshToken || sessionStorage.getItem('spotify_refresh');
+    if (!rt) { showScreen('auth'); return false; }
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt, client_id: CLIENT_ID })
+    });
+    const data = await res.json();
+    if (data.access_token) {
+      saveTokens(data);
+      // Re-init SDK player with new token
+      if (spotifyPlayer) spotifyPlayer.disconnect();
+      setTimeout(initPlayer, 500);
+      return true;
+    }
+    // Refresh failed — try once more after 10s before showing auth
+    setTimeout(async () => {
+      const retry = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt, client_id: CLIENT_ID })
+      });
+      const retryData = await retry.json();
+      if (retryData.access_token) { saveTokens(retryData); }
+      else { showScreen('auth'); }
+    }, 10000);
+    return false;
+  } finally {
+    refreshInProgress = false;
+  }
 }
 
 async function ensureToken() {
@@ -650,6 +685,26 @@ async function ensureToken() {
   if (Date.now() > tokenExpiry) return await refreshAccessToken();
   return true;
 }
+
+// Proactive keep-alive — ping Spotify every 30s to keep SDK active
+setInterval(async () => {
+  if (!accessToken) return;
+  try {
+    await fetch('https://api.spotify.com/v1/me/player', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+  } catch(e) {}
+}, 30000);
+
+// Reconnect SDK if it drops
+setInterval(async () => {
+  if (!deviceId && accessToken && spotifyPlayer) {
+    try {
+      await spotifyPlayer.disconnect();
+      setTimeout(initPlayer, 1000);
+    } catch(e) {}
+  }
+}, 60000);
 
 // ── COIN SOUND ──
 function playCoinSound() {
@@ -799,15 +854,25 @@ async function doSearch(q) {
   }
 }
 
+async function apiCall(url, options = {}) {
+  if (!await ensureToken()) return null;
+  options.headers = { ...options.headers, Authorization: 'Bearer ' + accessToken };
+  let res = await fetch(url, options);
+  if (res.status === 401) {
+    await refreshAccessToken();
+    options.headers.Authorization = 'Bearer ' + accessToken;
+    res = await fetch(url, options);
+  }
+  return res;
+}
+
 async function queueTrack(uri, name, artist, art) {
   if (!await ensureToken()) return;
   try {
     let did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
 
     // Get player state
-    const stateRes = await fetch('https://api.spotify.com/v1/me/player', {
-      headers: { Authorization: 'Bearer ' + accessToken }
-    });
+    const stateRes = await apiCall('https://api.spotify.com/v1/me/player');
     const playing = stateRes.status === 200
       ? (await stateRes.json())?.is_playing || false
       : false;
@@ -815,7 +880,7 @@ async function queueTrack(uri, name, artist, art) {
     if (playing) {
       // Queue it — plays after current song
       const qurl = `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}` + (did ? `&device_id=${did}` : '');
-      await fetch(qurl, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } });
+      await apiCall(qurl, { method: 'POST' });
     } else {
       // Nothing playing — find device and play directly
       if (!did) {
@@ -829,9 +894,9 @@ async function queueTrack(uri, name, artist, art) {
         }
       }
       const playUrl = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
-      await fetch(playUrl, {
+      await apiCall(playUrl, {
         method: 'PUT',
-        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uris: [uri] })
       });
     }
@@ -1067,6 +1132,9 @@ window.onSpotifyWebPlaybackSDKReady = () => initPlayer();
 
 async function initPlayer() {
   if (!await ensureToken()) return;
+  // Schedule refresh based on remaining token life
+  const remaining = Math.max((tokenExpiry - Date.now()) / 1000, 10);
+  scheduleTokenRefresh(remaining - 120);
   spotifyPlayer = new Spotify.Player({
     name: 'FUNHUB Jukebox',
     getOAuthToken: async cb => { await ensureToken(); cb(accessToken); },
