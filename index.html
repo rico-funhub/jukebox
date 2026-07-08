@@ -365,8 +365,19 @@ async function fetchQueue() {
     const r = await api('https://api.spotify.com/v1/me/player/queue');
     if (!r || !r.ok) return;
     const d = await r.json();
-    const seen = new Set([d.currently_playing?.id].filter(Boolean));
-    const items = (d.queue || []).filter(t => { if (!t.id || seen.has(t.id)) return false; seen.add(t.id); return true; }).slice(0, 8);
+    const cur = d.currently_playing;
+    const seen = new Set();
+    if (cur?.id) seen.add(cur.id);
+    if (cur?.uri) seen.add(cur.uri);
+    // Also exclude the last item in queue if it matches currently playing (Spotify duplicate bug)
+    const raw = d.queue || [];
+    const items = raw.filter(t => {
+      if (!t.id) return false;
+      if (seen.has(t.id) || seen.has(t.uri)) return false;
+      seen.add(t.id);
+      seen.add(t.uri);
+      return true;
+    }).slice(0, 8);
     const list = document.getElementById('queue-list');
     list.innerHTML = items.length ? items.map((t,i) => {
       const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
