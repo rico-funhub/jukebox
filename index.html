@@ -97,6 +97,62 @@
     .search-play-btn { width: 42px; height: 42px; border-radius: 50%; background: #1DB954; border: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
     .search-status { font-size: 14px; color: rgba(255,255,255,0.25); padding: 2rem 0; text-align: center; }
 
+
+    /* ── SETTINGS ── */
+    .settings-tap-zone {
+      position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+      width: 200px; height: 60px; z-index: 200; cursor: default;
+    }
+    .settings-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      display: none; align-items: center; justify-content: center;
+      z-index: 300; flex-direction: column; gap: 1.5rem;
+    }
+    .settings-overlay.open { display: flex; }
+    .settings-box {
+      background: #141414; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px; padding: 2.5rem; width: 380px; max-width: 90vw;
+    }
+    .settings-title {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.4); text-transform: uppercase;
+      margin-bottom: 2rem; text-align: center;
+    }
+    .settings-logo { width: 100px; opacity: 0.7; object-fit: contain; display: block; margin: 0 auto 1.5rem; }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-label { font-size: 15px; color: rgba(255,255,255,0.8); }
+    .settings-label small { display: block; font-size: 12px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+    .settings-btn {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px; padding: 8px 18px; font-size: 13px; font-weight: 600;
+      color: #fff; cursor: pointer; font-family: inherit; white-space: nowrap;
+    }
+    .settings-btn.danger { background: rgba(255,60,60,0.15); border-color: rgba(255,60,60,0.3); color: #ff6b6b; }
+    .settings-btn:hover { background: rgba(255,255,255,0.15); }
+    .settings-btn.danger:hover { background: rgba(255,60,60,0.25); }
+    .settings-close {
+      background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 24px;
+      padding: 10px 32px; font-size: 14px; color: rgba(255,255,255,0.5);
+      cursor: pointer; font-family: inherit;
+    }
+    .settings-close:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+    .pin-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+      display: none; align-items: center; justify-content: center;
+      z-index: 400; flex-direction: column; gap: 1.5rem;
+    }
+    .pin-overlay.open { display: flex; }
+    .pin-box { background: #141414; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 2.5rem; width: 320px; text-align: center; }
+    .pin-title { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 1.5rem; }
+    .pin-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; font-size: 28px; font-weight: 700; color: #fff; font-family: inherit; outline: none; text-align: center; letter-spacing: 0.3em; margin-bottom: 1rem; }
+    .pin-input:focus { border-color: #1DB954; }
+    .pin-error { font-size: 13px; color: #ff6b6b; min-height: 20px; }
+    .pin-cancel { background: none; border: none; color: rgba(255,255,255,0.3); font-size: 14px; cursor: pointer; font-family: inherit; margin-top: 0.5rem; }
+
     /* CREDITS */
     .credits-badge { position: fixed; bottom: 1.5rem; right: 1.5rem; display: none; align-items: center; gap: 10px; background: rgba(212,175,55,0.12); border: 1.5px solid rgba(212,175,55,0.35); border-radius: 32px; padding: 12px 22px; font-size: 18px; font-weight: 800; color: #D4AF37; letter-spacing: 0.06em; z-index: 100; }
     .credits-dot { width: 9px; height: 9px; border-radius: 50%; background: #D4AF37; }
@@ -173,6 +229,50 @@
   <button class="lang-btn" data-lang="es" onclick="setLang('es')" title="Español">🇲🇽</button>
 </div>
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
+
+
+<!-- PIN OVERLAY -->
+<div class="pin-overlay" id="pin-overlay">
+  <div class="pin-box">
+    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="settings-logo" alt="FUNHUB" />
+    <p class="pin-title">Enter PIN</p>
+    <input class="pin-input" id="pin-input" type="password" maxlength="4" placeholder="••••" oninput="checkPin(this.value)" autocomplete="off" />
+    <p class="pin-error" id="pin-error"></p>
+    <button class="pin-cancel" onclick="closePinOverlay()">Cancel</button>
+  </div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div class="settings-overlay" id="settings-overlay">
+  <div class="settings-box">
+    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="settings-logo" alt="FUNHUB" />
+    <p class="settings-title">Settings</p>
+    <div class="settings-row">
+      <div class="settings-label">Credits<small id="settings-credits-count">0 credits loaded</small></div>
+      <button class="settings-btn danger" onclick="settingsClearCredits()">Clear</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Queue<small>Skip remaining songs</small></div>
+      <button class="settings-btn danger" onclick="settingsClearQueue()">Clear</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Session<small id="settings-session-info">Started this session</small></div>
+      <button class="settings-btn danger" onclick="settingsClearSession()">Reset</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Change PIN<small>Current PIN: ••••</small></div>
+      <button class="settings-btn" onclick="settingsChangePin()">Change</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Spotify<small>Disconnect account</small></div>
+      <button class="settings-btn danger" onclick="settingsDisconnect()">Disconnect</button>
+    </div>
+  </div>
+  <button class="settings-close" onclick="closeSettings()">Close</button>
+</div>
+
+<!-- TAP ZONE -->
+<div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
 
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
 <script>
@@ -358,6 +458,7 @@ function onState(state) {
   document.getElementById('disc').classList.add('spinning');
   if (currentScreen !== 'search') showScreen('playing');
   fetchQueue();
+  savePlaybackState(track.name, track.artists.map(a=>a.name).join(', '), art, art);
 }
 
 // ── QUEUE ──
@@ -499,6 +600,125 @@ document.addEventListener('keydown', e => {
   else { updateAttract(); if (currentScreen === 'attract') openSearch(); }
 });
 
+
+// ── SETTINGS ──
+let settingsTaps = 0, settingsTapTimer = null;
+let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
+
+function handleSettingsTap() {
+  settingsTaps++;
+  if (settingsTapTimer) clearTimeout(settingsTapTimer);
+  settingsTapTimer = setTimeout(() => { settingsTaps = 0; }, 3000);
+  if (settingsTaps >= 5) {
+    settingsTaps = 0;
+    openPinOverlay();
+  }
+}
+
+function openPinOverlay() {
+  document.getElementById('pin-overlay').classList.add('open');
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').textContent = '';
+  setTimeout(() => document.getElementById('pin-input').focus(), 100);
+}
+
+function closePinOverlay() {
+  document.getElementById('pin-overlay').classList.remove('open');
+}
+
+function checkPin(val) {
+  if (val.length < 4) return;
+  if (val === settingsPin) {
+    closePinOverlay();
+    openSettings();
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN';
+    document.getElementById('pin-input').value = '';
+  }
+}
+
+function openSettings() {
+  document.getElementById('settings-credits-count').textContent = credits + ' credits loaded';
+  const start = parseInt(sessionStorage.getItem('session_start') || Date.now());
+  const hrs = Math.floor((Date.now() - start) / 3600000);
+  const mins = Math.floor(((Date.now() - start) % 3600000) / 60000);
+  document.getElementById('settings-session-info').textContent = hrs > 0 ? `${hrs}h ${mins}m active` : `${mins}m active`;
+  document.getElementById('settings-overlay').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open');
+}
+
+function settingsClearCredits() {
+  credits = 0;
+  updateAttract();
+  document.getElementById('settings-credits-count').textContent = '0 credits loaded';
+  document.getElementById('credits-badge').style.display = 'none';
+}
+
+async function settingsClearQueue() {
+  if (!await ensureToken()) return;
+  try {
+    // Skip through remaining queue
+    for (let i = 0; i < 10; i++) {
+      const r = await api('https://api.spotify.com/v1/me/player/queue');
+      if (!r || !r.ok) break;
+      const d = await r.json();
+      if (!d.queue || d.queue.length === 0) break;
+      await api('https://api.spotify.com/v1/me/player/next', { method: 'POST' });
+      await new Promise(r => setTimeout(r, 300));
+    }
+    fetchQueue();
+  } catch(e) {}
+}
+
+function settingsClearSession() {
+  sessionStorage.removeItem('jukebox_state');
+  credits = 0;
+  updateAttract();
+  closeSettings();
+  showScreen('attract');
+}
+
+function settingsChangePin() {
+  const newPin = prompt('Enter new 4-digit PIN:');
+  if (newPin && /^\d{4}$/.test(newPin)) {
+    settingsPin = newPin;
+    localStorage.setItem('jukebox_pin', newPin);
+    alert('PIN updated.');
+  } else if (newPin) {
+    alert('PIN must be exactly 4 digits.');
+  }
+}
+
+function settingsDisconnect() {
+  if (confirm('Disconnect Spotify? The page will reload.')) {
+    sessionStorage.clear();
+    window.location.href = window.location.pathname;
+  }
+}
+
+// ── SESSION PERSISTENCE ──
+function savePlaybackState(trackName, artistName, artUrl, bgUrl) {
+  const state = { trackName, artistName, artUrl, bgUrl, savedAt: Date.now() };
+  sessionStorage.setItem('jukebox_state', JSON.stringify(state));
+}
+
+function loadPlaybackState() {
+  try {
+    const raw = sessionStorage.getItem('jukebox_state');
+    if (!raw) return null;
+    const state = JSON.parse(raw);
+    // Expire after 8 hours
+    if (Date.now() - state.savedAt > 8 * 3600000) {
+      sessionStorage.removeItem('jukebox_state');
+      return null;
+    }
+    return state;
+  } catch(e) { return null; }
+}
+
 // ── INIT ──
 async function init() {
   // Handle reset
@@ -523,7 +743,20 @@ async function init() {
   if (await ensureToken()) {
     showScreen('attract');
     startKeepAlive();
-    // Try to resume if something was playing
+    // Record session start time
+    if (!sessionStorage.getItem('session_start')) sessionStorage.setItem('session_start', Date.now());
+
+    // Try to restore saved state first
+    const saved = loadPlaybackState();
+    if (saved) {
+      document.getElementById('playing-track').textContent = saved.trackName;
+      document.getElementById('playing-artist').textContent = saved.artistName;
+      const img = document.getElementById('art-img');
+      if (saved.artUrl) { img.src = saved.artUrl; img.style.display = 'block'; document.getElementById('playing-bg').style.backgroundImage = `url(${saved.artUrl})`; }
+      document.getElementById('disc').classList.add('spinning');
+    }
+
+    // Check live Spotify state
     try {
       const r = await api('https://api.spotify.com/v1/me/player');
       if (r?.status === 200) {
