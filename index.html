@@ -602,7 +602,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.0.6</p>
+<p class="version-badge">v1.0.7</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1900,7 +1900,7 @@ async function staffFetchQueue() {
       seen.add(t.id); return true;
     }).slice(0, 8);
     const list = document.getElementById('staff-queue-list');
-    const safe = s => s.replace(/'/g,"\'");
+    const safe = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
     list.innerHTML = items.length ? items.map(t => {
       const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
       return `<li class="staff-queue-item" onclick="staffPlayFromQueue('${safe(t.uri)}','${safe(t.name)}')" title="Play now">
