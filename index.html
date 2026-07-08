@@ -255,10 +255,6 @@
       padding: 0 4px;
       box-sizing: border-box;
     }
-    /* All rows match the width of a 10-key row */
-    .osk-row.row-10 { }
-    .osk-row.row-9del { max-width: 100%; }
-    .osk-row.row-bottom { max-width: 100%; }
     .osk-key {
       flex: 1;
       max-width: calc(10% - 6px);
@@ -273,11 +269,13 @@
       box-shadow: 0 2px 0 rgba(0,0,0,0.5);
     }
     .osk-key:active { background: #636366; box-shadow: none; transform: translateY(1px); }
-    /* Row 3: 9 letters + del. Del = ~1.5x key width */
     .osk-key.key-del { background: #636366; flex: 1.5; max-width: calc(15% - 6px); font-size: 20px; }
-    /* Row 4: 7 letters + space + clear. Space fills remaining, clear = ~1.5x */
-    .osk-key.key-space { background: #3a3a3c; flex: 4; max-width: 999px; font-size: 14px; color: rgba(255,255,255,0.3); }
+    .osk-key.key-caps { background: #636366; flex: 1.5; max-width: calc(15% - 6px); font-size: 20px; }
+    .osk-key.key-caps.caps-on { background: #d1d1d6; color: #000; }
+    .osk-key.key-hide { background: #636366; flex: 1.5; max-width: calc(15% - 6px); font-size: 18px; }
+    .osk-key.key-space { background: #3a3a3c; flex: 6; max-width: 999px; font-size: 14px; color: rgba(255,255,255,0.3); }
     .osk-key.key-clear { background: #8b0000; flex: 1.5; max-width: calc(15% - 6px); font-size: 13px; font-weight: 700; }
+    .osk-spacer { flex: 1.5; max-width: calc(15% - 6px); }
 
     /* ── STAFF PANEL ── */
     .staff-overlay {
@@ -600,7 +598,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.1.0</p>
+<p class="version-badge">v1.2.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -686,6 +684,7 @@
   <div class="osk-row" id="osk-r2"></div>
   <div class="osk-row" id="osk-r3"></div>
   <div class="osk-row" id="osk-r4"></div>
+  <div class="osk-row" id="osk-r5"></div>
 </div>
 
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
@@ -784,6 +783,7 @@ function showScreen(id) {
   if (id === 'attract') {
     credits = 0; setLang('en'); updateAttractText();
     hideOsk();
+    setCaps(true);
     const sp = document.getElementById('split-panel');
     if (sp) sp.classList.remove('open');
     const pr = document.getElementById('playing-right');
@@ -1347,35 +1347,65 @@ function renderBlacklist() {
 
 // ── ON-SCREEN KEYBOARD ──
 let oskActiveInput = null;
+let oskCaps = true;
 
 function buildOsk() {
   const r1 = document.getElementById('osk-r1');
   const r2 = document.getElementById('osk-r2');
   const r3 = document.getElementById('osk-r3');
   const r4 = document.getElementById('osk-r4');
-  if (!r1 || !r2 || !r3 || !r4) return;
+  const r5 = document.getElementById('osk-r5');
+  if (!r1 || !r2 || !r3 || !r4 || !r5) return;
 
+  const letter = (row, k) => row.appendChild(makeKey(k, 'osk-letter', () => oskType(oskCaps ? k : k.toLowerCase())));
+  const spacer = row => { const s = document.createElement('div'); s.className = 'osk-spacer'; row.appendChild(s); };
+
+  // Row 1: numbers
   r1.innerHTML = '';
   ['1','2','3','4','5','6','7','8','9','0'].forEach(k =>
     r1.appendChild(makeKey(k, '', () => oskType(k))));
 
+  // Row 2: QWERTYUIOP + delete
   r2.innerHTML = '';
-  ['Q','W','E','R','T','Y','U','I','O','P'].forEach(k =>
-    r2.appendChild(makeKey(k, '', () => oskType(k))));
+  ['Q','W','E','R','T','Y','U','I','O','P'].forEach(k => letter(r2, k));
+  r2.appendChild(makeKey('\u232B', 'key-del', () => oskDel()));
 
+  // Row 3: caps + ASDFGHJKL
   r3.innerHTML = '';
-  const spacer = document.createElement('div');
-  spacer.style.cssText = 'flex:0.75;max-width:calc(7.5% - 6px);';
-  r3.appendChild(spacer);
-  ['A','S','D','F','G','H','J','K','L'].forEach(k =>
-    r3.appendChild(makeKey(k, '', () => oskType(k))));
-  r3.appendChild(makeKey('\u232B', 'key-del', () => oskDel()));
+  const capsBtn = makeKey('\u21E7', 'key-caps' + (oskCaps ? ' caps-on' : ''), () => toggleCaps());
+  capsBtn.id = 'osk-caps';
+  r3.appendChild(capsBtn);
+  ['A','S','D','F','G','H','J','K','L'].forEach(k => letter(r3, k));
 
+  // Row 4: ZXCVBNM centered
   r4.innerHTML = '';
-  ['Z','X','C','V','B','N','M'].forEach(k =>
-    r4.appendChild(makeKey(k, '', () => oskType(k))));
-  r4.appendChild(makeKey('space', 'key-space', () => oskType(' ')));
-  r4.appendChild(makeKey('clear', 'key-clear', () => oskClear()));
+  spacer(r4);
+  ['Z','X','C','V','B','N','M'].forEach(k => letter(r4, k));
+  spacer(r4);
+
+  // Row 5: hide + space + clear
+  r5.innerHTML = '';
+  r5.appendChild(makeKey('\u2328\u25BE', 'key-hide', () => hideOsk()));
+  r5.appendChild(makeKey('space', 'key-space', () => oskType(' ')));
+  r5.appendChild(makeKey('clear', 'key-clear', () => oskClear()));
+
+  // Tapping a search input brings the keyboard back after hide
+  ['search-input', 'split-input'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    inp.addEventListener('click', () => { if (oskEnabled) showOsk(id); });
+  });
+}
+
+function toggleCaps() { setCaps(!oskCaps); }
+
+function setCaps(v) {
+  oskCaps = v;
+  const capsBtn = document.getElementById('osk-caps');
+  if (capsBtn) capsBtn.classList.toggle('caps-on', oskCaps);
+  document.querySelectorAll('.osk-letter').forEach(btn => {
+    btn.textContent = oskCaps ? btn.textContent.toUpperCase() : btn.textContent.toLowerCase();
+  });
 }
 
 function makeKey(label, cls, fn) {
