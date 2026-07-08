@@ -684,7 +684,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.2.5</p>
+<p class="version-badge">v1.3.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -846,6 +846,10 @@
 (function() {
   if (new URLSearchParams(window.location.search).get('reset') === '1') {
     sessionStorage.clear();
+    // Clear durable tokens too so reset forces a clean re-login. Keys/settings kept.
+    localStorage.removeItem('spotify_token');
+    localStorage.removeItem('spotify_refresh');
+    localStorage.removeItem('spotify_expiry');
     window.history.replaceState(null, '', window.location.pathname);
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-auth').classList.add('active');
@@ -1109,26 +1113,29 @@ function toggleAuthHelp() {
 }
 
 function saveSetupKey() {
-  const a = (document.getElementById('setup-key-input').value || '').trim();
-  const b = (document.getElementById('setup-key-b-input').value || '').trim();
+  // Strip ALL whitespace and invisible characters — a pasted key often carries a
+  // stray space, newline, or zero-width char that silently failed the old check.
+  const clean = s => (s || '').replace(/[\s\u200B-\u200D\uFEFF]/g, '');
+  const a = clean(document.getElementById('setup-key-input').value);
+  const b = clean(document.getElementById('setup-key-b-input').value);
   const err = document.getElementById('setup-error');
-  const valid = v => /^[0-9a-fA-F]{32}$/.test(v);
-  // Key A is required and must look valid.
-  if (!valid(a)) {
-    if (err) err.textContent = 'Key A doesn\'t look like a Client ID (should be 32 letters/numbers). Check the guide below.';
-    return;
-  }
-  // Key B is optional, but if filled it must also look valid.
-  if (b && !valid(b)) {
-    if (err) err.textContent = 'Key B doesn\'t look like a Client ID. Clear it or fix it.';
-    return;
-  }
+  // Permissive: a Spotify Client ID is ~32 hex chars, but don't hard-reject a
+  // valid key over a format guess. Only block if it's clearly not an ID.
+  const looksLikeId = v => /^[0-9a-zA-Z]{20,64}$/.test(v);
+  const fail = m => { if (err) { err.textContent = m; err.style.fontSize = '15px'; err.style.fontWeight = '700'; } alert(m); };
+
+  if (!a) { fail('Enter Key A (the Spotify Client ID) before connecting.'); return; }
+  if (!looksLikeId(a)) { fail('Key A doesn\'t look like a Client ID. Copy it again from the Spotify dashboard (it\'s ~32 letters and numbers, no spaces).'); return; }
+  if (b && !looksLikeId(b)) { fail('Key B doesn\'t look like a Client ID. Clear it or paste it again.'); return; }
+
   keyA = a; keyB = b; activeKey = 'A';
   localStorage.setItem('jukebox_key_a', a);
   localStorage.setItem('jukebox_key_b', b);
   localStorage.setItem('jukebox_active_key', 'A');
   if (err) err.textContent = '';
-  // Keys in place — go straight into the Spotify connect flow on Key A.
+  // Visible feedback before the redirect so it never feels like "nothing happened".
+  const btn = document.querySelector('#screen-setup .btn-green');
+  if (btn) { btn.textContent = 'Connecting…'; btn.disabled = true; }
   startAuth();
 }
 
@@ -1146,9 +1153,11 @@ function saveTokens(d) {
   accessToken = d.access_token;
   if (d.refresh_token) refreshToken = d.refresh_token;
   tokenExpiry = Date.now() + (d.expires_in - 120) * 1000;
-  sessionStorage.setItem('spotify_token', accessToken);
-  sessionStorage.setItem('spotify_refresh', refreshToken || '');
-  sessionStorage.setItem('spotify_expiry', tokenExpiry);
+  // Durable storage (localStorage) so the login survives a browser/kiosk restart.
+  // sessionStorage would be wiped on close, forcing a re-login every time.
+  localStorage.setItem('spotify_token', accessToken);
+  localStorage.setItem('spotify_refresh', refreshToken || '');
+  localStorage.setItem('spotify_expiry', tokenExpiry);
   if (refreshTimer) clearTimeout(refreshTimer);
   refreshTimer = setTimeout(doRefresh, Math.max((d.expires_in - 180) * 1000, 10000));
 }
@@ -1157,7 +1166,7 @@ async function doRefresh() {
   if (refreshBusy) return;
   refreshBusy = true;
   try {
-    const rt = refreshToken || sessionStorage.getItem('spotify_refresh');
+    const rt = refreshToken || localStorage.getItem('spotify_refresh') || sessionStorage.getItem('spotify_refresh');
     if (!rt) { showScreen('auth'); return; }
     const res = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1181,10 +1190,16 @@ async function doRefresh() {
 
 async function ensureToken() {
   if (!accessToken) {
-    accessToken = sessionStorage.getItem('spotify_token');
-    tokenExpiry = parseInt(sessionStorage.getItem('spotify_expiry') || '0');
-    refreshToken = sessionStorage.getItem('spotify_refresh');
+    // Read durable tokens. Migrate any old sessionStorage values from before the
+    // localStorage switch, so an existing kiosk doesn't have to re-login once.
+    accessToken = localStorage.getItem('spotify_token') || sessionStorage.getItem('spotify_token');
+    tokenExpiry = parseInt(localStorage.getItem('spotify_expiry') || sessionStorage.getItem('spotify_expiry') || '0');
+    refreshToken = localStorage.getItem('spotify_refresh') || sessionStorage.getItem('spotify_refresh');
+    if (accessToken && !localStorage.getItem('spotify_token')) saveTokens({ access_token: accessToken, refresh_token: refreshToken, expires_in: 3600 });
   }
+  // Fresh browser session: access token gone but we still have a refresh token.
+  // Mint a new access token instead of forcing a re-login.
+  if (!accessToken && refreshToken) { await doRefresh(); return !!accessToken; }
   if (!accessToken) return false;
   if (Date.now() > tokenExpiry) { await doRefresh(); return !!accessToken; }
   return true;
@@ -1981,14 +1996,24 @@ function chooseDevice(id, name) {
 // ── APP KEYS ──
 // Switching the Client ID invalidates the current Spotify login, so any switch
 // clears the session and sends the kiosk back to the connect screen to re-link.
-function reconnectForKeyChange() {
+// Wipe the Spotify session (durable + in-memory). Used when the login must be
+// re-established: a key change (token is bound to the old Client ID) or a reset.
+function clearTokens() {
+  accessToken = null; refreshToken = null; tokenExpiry = 0;
   sessionStorage.clear();
+  localStorage.removeItem('spotify_token');
+  localStorage.removeItem('spotify_refresh');
+  localStorage.removeItem('spotify_expiry');
+}
+
+function reconnectForKeyChange() {
+  clearTokens();
   window.location.href = window.location.pathname;
 }
 
 function saveKey(slot) {
-  const v = (document.getElementById('key-' + slot.toLowerCase() + '-input').value || '').trim();
-  if (v && !/^[0-9a-fA-F]{32}$/.test(v)) { alert('That doesn\'t look like a Client ID (32 letters/numbers).'); return; }
+  const v = (document.getElementById('key-' + slot.toLowerCase() + '-input').value || '').replace(/[\s\u200B-\u200D\uFEFF]/g, '');
+  if (v && !/^[0-9a-zA-Z]{20,64}$/.test(v)) { alert('That doesn\'t look like a Client ID. Copy it again from the Spotify dashboard (~32 letters and numbers, no spaces).'); return; }
   if (slot === 'A') { keyA = v; localStorage.setItem('jukebox_key_a', v); }
   else { keyB = v; localStorage.setItem('jukebox_key_b', v); }
   // If we just changed the key that's currently active, we must reconnect.
@@ -2627,7 +2652,7 @@ function showError(title, msg, code) {
 }
 
 function retryFromError() {
-  sessionStorage.clear();
+  clearTokens();
   window.location.href = window.location.pathname;
 }
 
@@ -2688,6 +2713,7 @@ async function init() {
   if (new URLSearchParams(window.location.search).get('reset') === '1') {
     localStorage.removeItem('jukebox_oos');
     localStorage.removeItem('jukebox_closed');
+    clearTokens();
     outOfService = false;
     closedByStaff = false;
     showScreen(haveKey() ? 'auth' : 'setup');
