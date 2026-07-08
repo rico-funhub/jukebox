@@ -602,7 +602,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.5.1</p>
+<p class="version-badge">v1.0.6</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -734,6 +734,7 @@ let searchTimer = null, splitTimer = null;
 let idleTimer = null;
 const IDLE_MS = 900000;
 let refreshTimer = null, refreshBusy = false;
+const searchCache = {};
 
 // ── DIAGNOSTICS / ERROR CODES ──
 // Every failure gets a stable code so a tech knows exactly what broke.
@@ -1122,14 +1123,31 @@ async function queueTrack(uri, name, artist, art) {
     const stateR = await api('https://api.spotify.com/v1/me/player');
     const playing = stateR?.status === 200 ? (await stateR.json())?.is_playing : false;
 
-    if (playing) {
-      const qurl = `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}` + (did ? `&device_id=${did}` : '');
-      await api(qurl, { method: 'POST' });
-    } else {
-      const playUrl = `https://api.spotify.com/v1/me/player/play` + (did ? `?device_id=${did}` : '');
-      await api(playUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
+    async function attempt() {
+      if (playing) {
+        return await api(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}` + (did ? `&device_id=${did}` : ''), { method: 'POST' });
+      } else {
+        return await api(`https://api.spotify.com/v1/me/player/play` + (did ? `?device_id=${did}` : ''), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
+      }
     }
 
+    let r = await attempt();
+    if (r && r.status === 429) {
+      const el = document.getElementById('search-status') || document.getElementById('split-status');
+      if (el) el.textContent = 'One sec...';
+      await new Promise(res => setTimeout(res, 1500));
+      r = await attempt();
+    }
+
+    // FAILED — do NOT spend the credit
+    if (!r || (!r.ok && r.status !== 204)) {
+      logError(r ? apiErrorCode(r.status) : 'E-PLAY-01', 'queue failed');
+      const el = document.getElementById('search-status') || document.getElementById('split-status');
+      if (el) el.textContent = T[lang].searchError;
+      return;
+    }
+
+    // SUCCESS — now spend the credit
     credits = Math.max(0, credits - creditsPerSong);
     updateCredits();
     trackSongPlayed(name, artist, uri);
@@ -1141,12 +1159,9 @@ async function queueTrack(uri, name, artist, art) {
       const statusId = wasSplit ? 'split-status' : 'search-status';
       const inputId = wasSplit ? 'split-input' : 'search-input';
       const resultsId = wasSplit ? 'split-results' : 'search-results';
-      const inp = document.getElementById(inputId);
-      if (inp) inp.value = '';
-      const res = document.getElementById(resultsId);
-      if (res) res.innerHTML = '';
-      const st = document.getElementById(statusId);
-      if (st) st.textContent = T[lang].added;
+      const inp = document.getElementById(inputId); if (inp) inp.value = '';
+      const res = document.getElementById(resultsId); if (res) res.innerHTML = '';
+      const st = document.getElementById(statusId); if (st) st.textContent = T[lang].added;
       resetIdle();
     } else {
       // No credits left: close search, back to now playing
@@ -1160,7 +1175,7 @@ async function queueTrack(uri, name, artist, art) {
   } catch(e) {
     logError('E-PLAY-01', String(e));
     const el = document.getElementById('search-status') || document.getElementById('split-status');
-    if (el) el.textContent = T[lang].searchError + ' (E-PLAY-01)';
+    if (el) el.textContent = T[lang].searchError;
   }
 }
 
@@ -1194,9 +1209,9 @@ function closeSearch() { clearIdle(); hideOsk(); isPlaying ? showScreen('playing
 function liveSearch(val) {
   resetIdle();
   clearTimeout(searchTimer);
-  if (!val.trim()) { document.getElementById('search-results').innerHTML = ''; document.getElementById('search-status').textContent = ''; return; }
+  if (val.trim().length < 2) { document.getElementById('search-results').innerHTML = ''; document.getElementById('search-status').textContent = ''; return; }
   document.getElementById('search-status').textContent = T[lang].searching;
-  searchTimer = setTimeout(() => doSearch(val.trim(), 'search-results', 'search-status', false), 350);
+  searchTimer = setTimeout(() => doSearch(val.trim(), 'search-results', 'search-status', false), 500);
 }
 
 // ── SPLIT SEARCH ──
@@ -1222,15 +1237,20 @@ function closeSplit() {
 function splitSearch(val) {
   resetIdle();
   clearTimeout(splitTimer);
-  if (!val.trim()) { document.getElementById('split-results').innerHTML = ''; document.getElementById('split-status').textContent = ''; return; }
+  if (val.trim().length < 2) { document.getElementById('split-results').innerHTML = ''; document.getElementById('split-status').textContent = ''; return; }
   document.getElementById('split-status').textContent = T[lang].searching;
-  splitTimer = setTimeout(() => doSearch(val.trim(), 'split-results', 'split-status', true), 350);
+  splitTimer = setTimeout(() => doSearch(val.trim(), 'split-results', 'split-status', true), 500);
 }
 
 // ── SHARED SEARCH ──
 async function doSearch(q, resultsId, statusId, small) {
   if (!await ensureToken()) return;
   document.getElementById(resultsId).innerHTML = '';
+  const cacheKey = q.toLowerCase();
+  if (searchCache[cacheKey]) {
+    renderSearchResults(searchCache[cacheKey], resultsId, statusId, small);
+    return;
+  }
   try {
     const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8`);
     if (!r || !r.ok) {
@@ -1240,20 +1260,25 @@ async function doSearch(q, resultsId, statusId, small) {
     }
     const d = await r.json();
     const tracks = (d.tracks?.items || []).filter(t => !isBlacklisted(t));
-    document.getElementById(statusId).textContent = '';
-    if (!tracks.length) { document.getElementById(statusId).textContent = T[lang].noResults; return; }
-    const safe = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-    const cls = small ? 'split' : 'search';
-    document.getElementById(resultsId).innerHTML = tracks.map(t => {
-      const a = t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || '';
-      const btnSize = small ? '16px' : '20px';
-      return `<li class="${cls}-result" onclick="queueTrack('${safe(t.uri)}','${safe(t.name)}','${safe(t.artists.map(x=>x.name).join(', '))}','${safe(a)}')">
-        <div class="${cls}-thumb">${a ? `<img src="${a}" alt="">` : ''}</div>
-        <div class="${cls}-info"><div class="${cls}-track">${t.name}</div><div class="${cls}-artist">${t.artists.map(x=>x.name).join(', ')}</div></div>
-        <button class="${cls}-play-btn" aria-label="Add"><svg viewBox="0 0 24 24" style="width:${btnSize};height:${btnSize};fill:white"><path d="M8 5v14l11-7z"/></svg></button>
-      </li>`;
-    }).join('');
+    searchCache[cacheKey] = tracks;
+    renderSearchResults(tracks, resultsId, statusId, small);
   } catch(e) { logError('E-SRCH-01', String(e)); document.getElementById(statusId).textContent = T[lang].searchError; }
+}
+
+function renderSearchResults(tracks, resultsId, statusId, small) {
+  document.getElementById(statusId).textContent = '';
+  if (!tracks.length) { document.getElementById(statusId).textContent = T[lang].noResults; return; }
+  const safe = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const cls = small ? 'split' : 'search';
+  document.getElementById(resultsId).innerHTML = tracks.map(t => {
+    const a = t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || '';
+    const btnSize = small ? '16px' : '20px';
+    return `<li class="${cls}-result" onclick="queueTrack('${safe(t.uri)}','${safe(t.name)}','${safe(t.artists.map(x=>x.name).join(', '))}','${safe(a)}')">
+      <div class="${cls}-thumb">${a ? `<img src="${a}" alt="">` : ''}</div>
+      <div class="${cls}-info"><div class="${cls}-track">${t.name}</div><div class="${cls}-artist">${t.artists.map(x=>x.name).join(', ')}</div></div>
+      <button class="${cls}-play-btn" aria-label="Add"><svg viewBox="0 0 24 24" style="width:${btnSize};height:${btnSize};fill:white"><path d="M8 5v14l11-7z"/></svg></button>
+    </li>`;
+  }).join('');
 }
 
 // ── T KEY / CARD TAP ──
