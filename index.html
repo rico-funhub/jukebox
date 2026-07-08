@@ -26,6 +26,78 @@
     }
     .screen.active { display: flex; }
 
+
+    /* ── DISC ── */
+    .disc-wrapper {
+      position: relative;
+      width: min(260px, 32vw);
+      height: min(260px, 32vw);
+    }
+
+    .disc {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: #1a1a1a;
+      border: 3px solid #222;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .disc.spinning {
+      animation: spin 4s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .disc-placeholder {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .disc-grooves {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: repeating-radial-gradient(circle at center,
+        transparent 0px, transparent 8px,
+        rgba(255,255,255,0.03) 8px, rgba(255,255,255,0.03) 9px
+      );
+    }
+
+    .disc-label {
+      position: relative;
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      background: #1DB954;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: white;
+      z-index: 1;
+    }
+
+    .disc-center {
+      position: absolute;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #0a0a0a;
+      border: 2px solid #333;
+      z-index: 2;
+    }
+
     /* ── AUTH ── */
     #screen-auth { gap: 1.5rem; }
     #screen-auth p { font-size: 15px; color: #888; }
@@ -367,9 +439,15 @@
 <div id="screen-playing" class="screen">
   <div class="playing-left">
     <p class="playing-label" id="playing-label">Now playing</p>
-    <div class="playing-art" id="playing-art">
-      <div class="playing-art-placeholder" id="art-placeholder">♫</div>
-      <img id="art-img" style="display:none" alt="" />
+    <div class="disc-wrapper">
+      <div class="disc" id="disc">
+        <div class="disc-placeholder" id="disc-placeholder">
+          <div class="disc-grooves"></div>
+          <div class="disc-label">FH</div>
+        </div>
+        <img id="art-img" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="" />
+        <div class="disc-center"></div>
+      </div>
     </div>
     <div id="playing-track" class="playing-track"></div>
     <div id="playing-artist" class="playing-artist"></div>
@@ -571,13 +649,20 @@ function onStateChange(state) {
   document.getElementById('playing-artist').textContent = track.artists.map(a => a.name).join(', ');
 
   const img = document.getElementById('art-img');
-  const placeholder = document.getElementById('art-placeholder');
-  if (art) { img.src = art; img.style.display = 'block'; placeholder.style.display = 'none'; }
-  else { img.style.display = 'none'; placeholder.style.display = 'flex'; }
+  const discPlaceholder = document.getElementById('disc-placeholder');
+  const disc = document.getElementById('disc');
+  if (art) {
+    img.src = art; img.style.display = 'block';
+    if (discPlaceholder) discPlaceholder.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    if (discPlaceholder) discPlaceholder.style.display = 'flex';
+  }
+  if (disc) disc.classList.add('spinning');
 
-  document.getElementById('playing-label').textContent = isPlaying ? 'Now playing' : 'Paused';
-  document.getElementById('start-btn').style.display = isPlaying ? 'none' : 'inline-block';
-  document.getElementById('tap-more').style.display = isPlaying ? 'block' : 'none';
+  document.getElementById('playing-label').textContent = 'Now playing';
+  document.getElementById('start-btn').style.display = 'none';
+  document.getElementById('tap-more').style.display = 'block';
 
   if (currentScreen !== 'search' && currentScreen !== 'confirm') {
     showScreen('playing');
