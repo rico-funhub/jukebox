@@ -692,7 +692,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.4.0</p>
+<p class="version-badge">v1.4.1</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1835,20 +1835,10 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key.toLowerCase() !== coinKey) return;
-  // Never fire coin while staff overlays are open (PIN typing, blacklist typing, etc.)
-  if (document.getElementById('pin-overlay').classList.contains('open')) return;
-  if (document.getElementById('settings-overlay').classList.contains('open')) return;
-  if (document.getElementById('staff-overlay').classList.contains('open')) return;
   // OSK off = real keyboard in use: let typing into inputs pass through
   if (!oskEnabled && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   e.preventDefault();
-  coinSound();
-  if (freeMode) { openSongPicker(); return; }
-  credits += creditsPerTap;
-  updateCredits();
-  trackCreditInserted();
-  updateAttractText();
-  openSongPicker();
+  triggerCoin();
 });
 
 // ── SETTINGS ──
@@ -2715,27 +2705,36 @@ function retryFromError() {
 }
 
 // ── KEEP ALIVE ──
+// True only while the mapped gamepad button is held — persists across polls.
+// (getGamepads() returns a fresh snapshot each call, so the flag can't live on
+// the button object or it'd never persist and coins would spam while held.)
+let gpCoinDown = false;
+
+// Shared coin action for keyboard + gamepad, with the same staff-overlay guard.
+function triggerCoin() {
+  if (document.getElementById('pin-overlay').classList.contains('open')) return;
+  if (document.getElementById('settings-overlay').classList.contains('open')) return;
+  if (document.getElementById('staff-overlay').classList.contains('open')) return;
+  coinSound();
+  if (freeMode) { openSongPicker(); return; }
+  credits += creditsPerTap;
+  updateCredits();
+  trackCreditInserted();
+  updateAttractText();
+  openSongPicker();
+}
+
 function startGamepadCoinPoll() {
   setInterval(() => {
-    if (!coinKey.startsWith('gamepad_')) return;
+    if (!coinKey.startsWith('gamepad_')) { gpCoinDown = false; return; }
     const idx = parseInt(coinKey.replace('gamepad_', ''));
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let pressed = false;
     for (const gp of gamepads) {
-      if (!gp || !gp.buttons[idx]) continue;
-      if (gp.buttons[idx].pressed && !gp.buttons[idx]._wasPressed) {
-        gp.buttons[idx]._wasPressed = true;
-        // Trigger coin
-        coinSound();
-        if (freeMode) { openSongPicker(); return; }
-        credits += creditsPerTap;
-        updateCredits();
-        updateAttractText();
-        trackCreditInserted();
-        openSongPicker();
-      } else if (!gp.buttons[idx].pressed) {
-        gp.buttons[idx]._wasPressed = false;
-      }
+      if (gp && gp.buttons[idx] && gp.buttons[idx].pressed) { pressed = true; break; }
     }
+    if (pressed && !gpCoinDown) { gpCoinDown = true; triggerCoin(); }
+    else if (!pressed) { gpCoinDown = false; }
   }, 50);
 }
 
