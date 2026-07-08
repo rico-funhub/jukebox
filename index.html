@@ -23,6 +23,7 @@
     .attract-tap { font-size: clamp(52px, 10vw, 100px); font-weight: 900; letter-spacing: 0.04em; color: #fff; animation: zoom 2s ease-in-out infinite; line-height: 1; display: inline-block; }
     .attract-tap.tap-to-play { color: #1DB954; }
     @keyframes zoom { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    .attract-credits { font-size: clamp(13px, 1.8vw, 18px); color: #D4AF37; font-weight: 700; letter-spacing: 0.1em; margin-top: -1rem; }
     .attract-sub { font-size: clamp(15px, 2.4vw, 22px); color: #555; letter-spacing: 0.14em; text-transform: uppercase; }
 
     /* NOW PLAYING */
@@ -177,6 +178,7 @@
 <div id="screen-attract" class="screen">
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="funhub-logo" alt="FUNHUB" />
   <p class="attract-tap" id="attract-tap">TAP YOUR CARD</p>
+  <p class="attract-credits" id="attract-credits">24 credits per tap</p>
   <p class="attract-sub" id="attract-sub">to request a song</p>
 </div>
 
@@ -354,6 +356,8 @@ function showScreen(id) {
 }
 
 function updateAttract() {
+  const ac = document.getElementById('attract-credits');
+  if (ac) ac.textContent = creditsPerTap + ' credits per tap';
   const t = T[lang];
   const tapEl = document.getElementById('attract-tap');
   if (!tapEl) return;
@@ -672,6 +676,8 @@ function adjustCpt(delta) {
   creditsPerTap = Math.max(1, creditsPerTap + delta);
   localStorage.setItem('jukebox_credits_per_tap', creditsPerTap);
   document.getElementById('cpt-display').textContent = creditsPerTap;
+  const el = document.getElementById('attract-credits');
+  if (el) el.textContent = creditsPerTap + ' credits per tap';
 }
 
 function adjustCps(delta) {
