@@ -239,36 +239,46 @@
       position: fixed;
       bottom: 0; left: 0; right: 0;
       z-index: 999;
-      padding: 10px 16px 14px;
+      padding: 12px 4px 18px;
       background: rgba(20,20,20,0.97);
       border-top: 1px solid rgba(255,255,255,0.08);
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 9px;
+      gap: 10px;
     }
     #osk-fixed.visible { display: flex; }
     .osk-row {
       display: flex;
-      gap: 7px;
+      gap: 6px;
       justify-content: center;
+      width: 100%;
+      padding: 0 4px;
+      box-sizing: border-box;
     }
+    /* All rows match the width of a 10-key row */
+    .osk-row.row-10 { }
+    .osk-row.row-9del { max-width: 100%; }
+    .osk-row.row-bottom { max-width: 100%; }
     .osk-key {
-      width: 72px; height: 48px;
+      flex: 1;
+      max-width: calc(10% - 6px);
+      height: 50px;
       border-radius: 9px; border: none;
       background: #3a3a3c;
-      color: #fff; font-size: 17px; font-weight: 400;
+      color: #fff; font-size: 18px; font-weight: 400;
       cursor: pointer;
       font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
       display: flex; align-items: center; justify-content: center;
       user-select: none; -webkit-user-select: none;
       box-shadow: 0 2px 0 rgba(0,0,0,0.5);
-      flex-shrink: 0;
     }
     .osk-key:active { background: #636366; box-shadow: none; transform: translateY(1px); }
-    .osk-key.key-del { background: #636366; width: 100px; font-size: 20px; }
-    .osk-key.key-space { background: #3a3a3c; width: 360px; font-size: 13px; color: rgba(255,255,255,0.35); }
-    .osk-key.key-clear { background: #8b0000; width: 100px; font-size: 13px; font-weight: 700; }
+    /* Row 3: 9 letters + del. Del = ~1.5x key width */
+    .osk-key.key-del { background: #636366; flex: 1.5; max-width: calc(15% - 6px); font-size: 20px; }
+    /* Row 4: 7 letters + space + clear. Space fills remaining, clear = ~1.5x */
+    .osk-key.key-space { background: #3a3a3c; flex: 4; max-width: 999px; font-size: 14px; color: rgba(255,255,255,0.3); }
+    .osk-key.key-clear { background: #8b0000; flex: 1.5; max-width: calc(15% - 6px); font-size: 13px; font-weight: 700; }
 
     /* ── STAFF PANEL ── */
     .staff-overlay {
