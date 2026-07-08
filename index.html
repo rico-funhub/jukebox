@@ -601,7 +601,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.4.0</p>
+<p class="version-badge">v1.4.1</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -723,7 +723,7 @@ let coinKeyLabel = localStorage.getItem('jukebox_coin_key_label') || 'T';
 let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
 let idleTimer = null;
-const IDLE_MS = 180000;
+const IDLE_MS = 900000;
 let refreshTimer = null, refreshBusy = false;
 
 // ── LANGUAGE ──
@@ -1390,6 +1390,10 @@ function clearIdle() {
 
 function idleReturn() {
   clearIdle();
+  // Guest walked away — forfeit any unspent credits (session-bound, Option A).
+  credits = 0;
+  updateCredits();
+  updateAttractText();
   if (currentScreen === 'search') closeSearch();
   else if (document.getElementById('split-panel').classList.contains('open')) closeSplit();
 }
@@ -1503,33 +1507,42 @@ function hideOsk() {
 // Kiosk mode: OSK on = inputs readonly (no native keyboard popup, physical keys reserved for card reader).
 // OSK off = normal inputs, PC keyboard types directly.
 function applyOskMode() {
+  // OSK on: suppress the native tablet keyboard with inputmode=none, but keep the
+  // field fully live so programmatic input + oninput still fire (readonly would kill them).
+  // OSK off: normal field, native/PC keyboard types directly.
   ['search-input', 'split-input'].forEach(id => {
     const inp = document.getElementById(id);
     if (!inp) return;
-    if (oskEnabled) inp.setAttribute('readonly', '');
-    else inp.removeAttribute('readonly');
+    if (oskEnabled) inp.setAttribute('inputmode', 'none');
+    else inp.removeAttribute('inputmode');
   });
+}
+
+function oskFire(inp) {
+  // Call the right search directly — reliable even if the input event is swallowed.
+  if (inp.id === 'search-input') liveSearch(inp.value);
+  else if (inp.id === 'split-input') splitSearch(inp.value);
 }
 
 function oskType(char) {
   const inp = document.getElementById(oskActiveInput);
   if (!inp) return;
   inp.value += char;
-  inp.dispatchEvent(new Event('input'));
+  oskFire(inp);
 }
 
 function oskDel() {
   const inp = document.getElementById(oskActiveInput);
   if (!inp) return;
   inp.value = inp.value.slice(0, -1);
-  inp.dispatchEvent(new Event('input'));
+  oskFire(inp);
 }
 
 function oskClear() {
   const inp = document.getElementById(oskActiveInput);
   if (!inp) return;
   inp.value = '';
-  inp.dispatchEvent(new Event('input'));
+  oskFire(inp);
 }
 
 // ── ATTRACT BACKGROUND ROTATION ──
