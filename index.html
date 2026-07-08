@@ -477,7 +477,7 @@
 </div>
 
 <!-- NOW PLAYING -->
-<div id="screen-playing" class="screen">
+<div id="screen-playing" class="screen" onclick="if(credits>0)openSongPicker()">
   <div class="playing-bg" id="playing-bg"></div>
 
   <div class="playing-left">
@@ -602,7 +602,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.5.0</p>
+<p class="version-badge">v1.5.1</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -818,7 +818,19 @@ function setLang(l) {
 }
 
 function attractTap() {
-  if (credits > 0 && !isPlaying && currentScreen === 'attract') openSearch();
+  if (credits > 0) openSongPicker();
+}
+
+// Single source of truth for letting a guest pick a song with loaded credits.
+// Works from ANY screen so credits can never get trapped.
+function openSongPicker() {
+  if (credits <= 0) return;
+  // Already picking? do nothing.
+  if (currentScreen === 'search') return;
+  if (document.getElementById('split-panel').classList.contains('open')) return;
+  // A song is playing -> split search beside the disc. Otherwise full search.
+  if (isPlaying) openSplit();
+  else openSearch();
 }
 
 function updateAttractText() {
@@ -1273,13 +1285,7 @@ document.addEventListener('keydown', e => {
   updateCredits();
   trackCreditInserted();
   updateAttractText();
-  if (isPlaying) {
-    // Only open split if not already open
-    const splitOpen = document.getElementById('split-panel').classList.contains('open');
-    if (!splitOpen) openSplit();
-  } else if (currentScreen === 'attract') {
-    openSearch();
-  }
+  openSongPicker();
 });
 
 // ── SETTINGS ──
