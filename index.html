@@ -671,6 +671,43 @@ async function queueTrack(uri, name, artist, art) {
       : `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}`;
     await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } });
 
+    // If nothing is playing, start playback then skip to the queued song
+    try {
+      const stateRes = await fetch('https://api.spotify.com/v1/me/player', {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      if (stateRes.status === 204 || stateRes.status === 404) {
+        // No active player at all — try to activate device first
+        if (deviceId) {
+          await fetch('https://api.spotify.com/v1/me/player', {
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_ids: [deviceId], play: true })
+          });
+          await new Promise(r => setTimeout(r, 800));
+          await fetch('https://api.spotify.com/v1/me/player/next', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + accessToken }
+          });
+        }
+      } else {
+        const state = await stateRes.json();
+        if (!state?.is_playing) {
+          // Player exists but paused — play then skip
+          await fetch('https://api.spotify.com/v1/me/player/play', {
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+            body: deviceId ? JSON.stringify({ device_ids: [deviceId] }) : '{}'
+          });
+          await new Promise(r => setTimeout(r, 600));
+          await fetch('https://api.spotify.com/v1/me/player/next', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + accessToken }
+          });
+        }
+      }
+    } catch(e) {}
+
     // Show confirm screen
     document.getElementById('confirm-track').textContent = name;
     document.getElementById('confirm-artist').textContent = artist;
