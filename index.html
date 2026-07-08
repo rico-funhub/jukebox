@@ -593,7 +593,7 @@ function onState(state) {
   }
   if (state.paused) {
     isPlaying = false;
-    if (sdkReady && currentScreen === 'playing') showScreen('attract');
+    if (sdkReady && (currentScreen === 'playing' || currentScreen === 'attract')) showScreen('attract');
     return;
   }
   isPlaying = true;
@@ -754,8 +754,13 @@ document.addEventListener('keydown', e => {
   credits += creditsPerTap;
   updateCredits();
   updateAttractText();
-  if (isPlaying) { openSplit(); }
-  else if (currentScreen === 'attract') { openSearch(); }
+  if (isPlaying) {
+    // Only open split if not already open
+    const splitOpen = document.getElementById('split-panel').classList.contains('open');
+    if (!splitOpen) openSplit();
+  } else if (currentScreen === 'attract') {
+    openSearch();
+  }
 });
 
 // ── SETTINGS ──
