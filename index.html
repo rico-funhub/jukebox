@@ -1245,7 +1245,7 @@ function rotateAttractBg() {
   if (!bg) return;
   bg.style.backgroundImage = `url(${attractBgArts[attractBgIdx % attractBgArts.length]})`;
   attractBgIdx++;
-  attractBgTimer = setTimeout(rotateAttractBg, 4000);
+  attractBgTimer = setTimeout(rotateAttractBg, 15000);
 }
 
 function stopAttractBg() {
