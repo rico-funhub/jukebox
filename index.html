@@ -205,41 +205,16 @@
       100% { transform: rotate(0deg) scale(1); opacity: 1; }
     }
 
-    /* ── DISC SLIDE ANIMATION (now playing) ── */
-    .disc-wrapper {
-      width: min(300px, 36vw);
-      height: min(300px, 36vw);
-      position: relative;
-      overflow: visible;
-    }
+    /* ── DISC ── */
+    .disc-wrapper { width: min(300px, 36vw); height: min(300px, 36vw); position: relative; }
     .disc {
-      width: 100%; height: 100%;
-      border-radius: 50%;
+      width: 100%; height: 100%; border-radius: 50%;
       background: radial-gradient(circle at center, #2a2a2a 15%, #111 55%, #1a1a1a 100%);
       border: 4px solid rgba(255,255,255,0.08);
-      position: relative;
-      display: flex; align-items: center; justify-content: center;
+      position: relative; display: flex; align-items: center; justify-content: center;
       overflow: hidden;
-      opacity: 0;
     }
-    .disc.slide-in {
-      animation: discSlideIn 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    }
-    .disc.spinning {
-      animation: spin 6s linear infinite;
-    }
-    .disc.slide-out {
-      animation: discSlideOut 0.9s cubic-bezier(0.55, 0, 1, 0.45) forwards;
-    }
-    @keyframes discSlideIn {
-      0% { transform: translateX(-110vw) rotate(-360deg); opacity: 0; }
-      50% { opacity: 1; }
-      100% { transform: translateX(0) rotate(0deg); opacity: 1; }
-    }
-    @keyframes discSlideOut {
-      0% { transform: translateX(0) rotate(0deg); opacity: 1; }
-      100% { transform: translateX(55vw) rotate(360deg); opacity: 0; }
-    }
+    .disc.spinning { animation: spin 6s linear infinite; }
     .disc img {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
@@ -873,10 +848,7 @@ async function initPlayer() {
             const bg = document.getElementById('playing-bg');
             if (art) { img.src = art; img.style.display = 'block'; bg.style.backgroundImage = `url(${art})`; }
             const disc = document.getElementById('disc');
-            disc.classList.remove('slide-in', 'slide-out', 'spinning');
-            void disc.offsetWidth;
-            disc.classList.add('slide-in');
-            setTimeout(() => { disc.classList.remove('slide-in'); disc.classList.add('spinning'); }, 1400);
+            disc.classList.add('spinning');
             isPlaying = true;
             showScreen('playing');
             fetchQueue();
@@ -907,16 +879,9 @@ function onState(state) {
     isPlaying = false;
     lastTrackUri = null;
     if (sdkReady && (currentScreen === 'playing' || currentScreen === 'attract')) {
-      // Slide disc out before switching screen
       const disc = document.getElementById('disc');
-      if (disc) {
-        disc.classList.remove('slide-in', 'spinning');
-        void disc.offsetWidth;
-        disc.classList.add('slide-out');
-        setTimeout(() => showScreen('attract'), 900);
-      } else {
-        showScreen('attract');
-      }
+      if (disc) disc.classList.remove('spinning');
+      showScreen('attract');
     }
     return;
   }
@@ -935,15 +900,8 @@ function onState(state) {
   const bg = document.getElementById('playing-bg');
   if (art) { img.src = art; img.style.display = 'block'; bg.style.backgroundImage = `url(${art})`; }
   else { img.style.display = 'none'; bg.style.backgroundImage = 'none'; }
-  // Slide disc in from left, spinning during slide
   const disc = document.getElementById('disc');
-  disc.classList.remove('slide-in', 'slide-out', 'spinning');
-  void disc.offsetWidth;
-  disc.classList.add('slide-in');
-  setTimeout(() => {
-    disc.classList.remove('slide-in');
-    disc.classList.add('spinning');
-  }, 1400);
+  disc.classList.add('spinning');
   saveState(track.name, track.artists.map(a=>a.name).join(', '), art);
   if (currentScreen !== 'search') showScreen('playing');
   fetchQueue();
