@@ -155,6 +155,112 @@
 
 
 
+
+    /* ── ATTRACT DISC ── */
+    .attract-disc-wrap {
+      position: relative;
+      width: min(220px, 28vw);
+      height: min(220px, 28vw);
+      margin-bottom: 0.5rem;
+    }
+    .attract-disc {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, #2a2a2a 20%, #111 60%, #1a1a1a 100%);
+      border: 3px solid rgba(255,255,255,0.08);
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      animation: attractSpin 8s linear infinite, attractFloat 3s ease-in-out infinite;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+    .attract-disc::before {
+      content: '';
+      position: absolute; inset: 0; border-radius: 50%;
+      background: repeating-radial-gradient(circle at center,
+        transparent 0px, transparent 12px,
+        rgba(255,255,255,0.03) 12px, rgba(255,255,255,0.03) 13px);
+    }
+    .attract-disc-center {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #1DB954; border: 3px solid rgba(0,0,0,0.5);
+      position: relative; z-index: 2;
+    }
+    @keyframes attractSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes attractFloat {
+      0%, 100% { margin-top: 0px; }
+      50% { margin-top: -12px; }
+    }
+    .attract-disc.fly-out {
+      animation: discFlyOut 0.4s ease-in forwards;
+    }
+    .attract-disc.fly-in {
+      animation: discFlyIn 0.5s ease-out forwards, attractSpin 8s linear infinite, attractFloat 3s ease-in-out infinite;
+    }
+    @keyframes discFlyOut {
+      0% { transform: rotate(0deg) scale(1); opacity: 1; }
+      100% { transform: rotate(180deg) scale(0.3) translateY(-200px); opacity: 0; }
+    }
+    @keyframes discFlyIn {
+      0% { transform: rotate(-180deg) scale(0.3) translateY(-200px); opacity: 0; }
+      100% { transform: rotate(0deg) scale(1); opacity: 1; }
+    }
+
+    /* ── DISC SLIDE OUT ANIMATION (now playing) ── */
+    .disc-sleeve {
+      position: relative;
+      width: min(340px, 40vw);
+      height: min(340px, 40vw);
+    }
+    .disc-sleeve-cover {
+      position: absolute; inset: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .disc-sleeve-cover img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .disc-sleeve-cover.no-art {
+      background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
+      border: 2px solid rgba(255,255,255,0.06);
+    }
+    .disc-from-sleeve {
+      position: absolute;
+      width: 90%; height: 90%;
+      border-radius: 50%;
+      top: 5%; left: 5%;
+      background: radial-gradient(circle at center, #222 20%, #111 60%, #1a1a1a 100%);
+      border: 3px solid rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      z-index: 0;
+      transform: translateX(-30%);
+      transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .disc-from-sleeve.emerged {
+      transform: translateX(20%);
+      z-index: 2;
+    }
+    .disc-from-sleeve.spinning {
+      animation: spin 5s linear infinite;
+    }
+    .disc-from-sleeve img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; border-radius: 50%;
+    }
+    .disc-from-sleeve-grooves {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: repeating-radial-gradient(circle at center,
+        transparent 0px, transparent 10px,
+        rgba(255,255,255,0.04) 10px, rgba(255,255,255,0.04) 11px);
+    }
+    .disc-from-sleeve-center {
+      position: absolute; width: 20px; height: 20px;
+      border-radius: 50%; background: #080808;
+      border: 2px solid rgba(255,255,255,0.2); z-index: 3;
+    }
+
     /* ── STAFF PANEL ── */
     .staff-overlay {
       position: fixed; inset: 0; background: #080808;
@@ -336,6 +442,11 @@
 <!-- ATTRACT -->
 <div id="screen-attract" class="screen">
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="attract-logo" alt="FUNHUB" />
+  <div class="attract-disc-wrap">
+    <div class="attract-disc" id="attract-disc">
+      <div class="attract-disc-center"></div>
+    </div>
+  </div>
   <p class="attract-tap" id="attract-tap">TAP YOUR CARD</p>
   <p class="attract-credits" id="attract-credits">1 Credit</p>
   <p class="attract-sub" id="attract-sub">to pick a song!</p>
@@ -348,11 +459,14 @@
   <div class="playing-left">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="playing-logo" alt="FUNHUB" />
     <p class="now-badge" id="now-badge">Now playing</p>
-    <div class="disc-wrapper">
-      <div class="disc" id="disc">
-        <div class="disc-grooves"></div>
+    <div class="disc-sleeve" id="disc-sleeve">
+      <div class="disc-sleeve-cover no-art" id="disc-sleeve-cover">
+        <img id="sleeve-art" style="display:none;width:100%;height:100%;object-fit:cover;" alt="" />
+      </div>
+      <div class="disc-from-sleeve" id="disc">
+        <div class="disc-from-sleeve-grooves"></div>
         <img id="art-img" style="display:none" alt="" />
-        <div class="disc-center"></div>
+        <div class="disc-from-sleeve-center"></div>
       </div>
     </div>
     <div id="playing-track" class="playing-track"></div>
@@ -518,6 +632,20 @@
       <div class="settings-label">Disconnect Spotify<small>Reconnect account</small></div>
       <button class="s-btn danger" onclick="settingsDisconnect()">Disconnect</button>
     </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;">
+      <div class="settings-label">Today's revenue<small id="rev-summary">Loading...</small></div>
+      <div id="rev-top" style="width:100%;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.8;"></div>
+    </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div class="settings-label">Blocked songs / artists<small>Search results will hide these</small></div>
+      </div>
+      <div style="display:flex;gap:8px;width:100%;">
+        <input id="blacklist-input" placeholder="Artist or song name..." style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:14px;color:#fff;font-family:inherit;outline:none;" />
+        <button class="s-btn" onclick="addToBlacklist(document.getElementById('blacklist-input').value.trim()); document.getElementById('blacklist-input').value=''; renderBlacklist();">Block</button>
+      </div>
+      <div id="blacklist-items" style="width:100%;"></div>
+    </div>
   </div>
   <button class="settings-close" onclick="closeSettings()">Close</button>
 </div>
@@ -611,7 +739,11 @@ function showScreen(id) {
   currentScreen = id;
   const cb = document.getElementById('credits-badge');
   cb.style.display = (credits > 0 && id !== 'auth') ? 'flex' : 'none';
-  if (id === 'attract') { credits = 0; setLang('en'); updateAttractText(); }
+  if (id === 'attract') {
+    credits = 0; setLang('en'); updateAttractText();
+    const ad = document.getElementById('attract-disc');
+    if (ad) { ad.classList.remove('fly-out'); ad.classList.add('fly-in'); setTimeout(() => ad.classList.remove('fly-in'), 600); }
+  }
 }
 
 function updateCredits() {
@@ -759,9 +891,25 @@ function onState(state) {
   document.getElementById('playing-artist').textContent = track.artists.map(a => a.name).join(', ');
   const img = document.getElementById('art-img');
   const bg = document.getElementById('playing-bg');
-  if (art) { img.src = art; img.style.display = 'block'; bg.style.backgroundImage = `url(${art})`; }
-  else { img.style.display = 'none'; bg.style.backgroundImage = 'none'; }
-  document.getElementById('disc').classList.add('spinning');
+  const sleeveArt = document.getElementById('sleeve-art');
+  const sleeveCover = document.getElementById('disc-sleeve-cover');
+  if (art) {
+    img.src = art; img.style.display = 'block';
+    sleeveArt.src = art; sleeveArt.style.display = 'block';
+    sleeveCover.classList.remove('no-art');
+    bg.style.backgroundImage = `url(${art})`;
+  } else {
+    img.style.display = 'none';
+    sleeveArt.style.display = 'none';
+    sleeveCover.classList.add('no-art');
+    bg.style.backgroundImage = 'none';
+  }
+  // Disc emerge animation
+  const disc = document.getElementById('disc');
+  disc.classList.remove('emerged', 'spinning');
+  void disc.offsetWidth; // reflow
+  setTimeout(() => { disc.classList.add('emerged'); }, 100);
+  setTimeout(() => { disc.classList.add('spinning'); }, 700);
   saveState(track.name, track.artists.map(a=>a.name).join(', '), art);
   if (currentScreen !== 'search') showScreen('playing');
   fetchQueue();
@@ -823,6 +971,7 @@ async function queueTrack(uri, name, artist, art) {
 
     credits = Math.max(0, credits - creditsPerSong);
     updateCredits();
+    trackSongPlayed(name, artist, uri);
     closeSplit();
     if (currentScreen === 'search') closeSearch();
     showScreen('playing');
@@ -836,6 +985,9 @@ async function queueTrack(uri, name, artist, art) {
 
 // ── FULL SEARCH ──
 function openSearch() {
+  // Fly out attract disc
+  const ad = document.getElementById('attract-disc');
+  if (ad) { ad.classList.add('fly-out'); setTimeout(() => ad.classList.remove('fly-out'), 500); }
   showScreen('search');
   const t = T[lang];
   const si = document.getElementById('search-input');
@@ -885,7 +1037,7 @@ async function doSearch(q, resultsId, statusId, small) {
     const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8`);
     if (!r || !r.ok) { document.getElementById(statusId).textContent = T[lang].noResults; return; }
     const d = await r.json();
-    const tracks = d.tracks?.items || [];
+    const tracks = (d.tracks?.items || []).filter(t => !isBlacklisted(t));
     document.getElementById(statusId).textContent = '';
     if (!tracks.length) { document.getElementById(statusId).textContent = T[lang].noResults; return; }
     const safe = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
@@ -909,6 +1061,7 @@ document.addEventListener('keydown', e => {
   coinSound();
   credits += creditsPerTap;
   updateCredits();
+  trackCreditInserted();
   updateAttractText();
   if (isPlaying) {
     // Only open split if not already open
@@ -946,6 +1099,14 @@ function openSettings() {
   document.getElementById('s-credits-loaded').textContent = credits + ' credits';
   document.getElementById('cpt-val').textContent = creditsPerTap;
   document.getElementById('cps-val').textContent = creditsPerSong;
+  const rev = getRevenueReport();
+  const revSummary = document.getElementById('rev-summary');
+  if (revSummary) revSummary.textContent = rev.credits + ' credits inserted · ' + rev.songs + ' songs played';
+  const revTop = document.getElementById('rev-top');
+  if (revTop) revTop.innerHTML = rev.top.length
+    ? '<strong style="color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:0.1em;">TOP SONGS TODAY</strong><br>' + rev.top.map(([s,c]) => `${s} <span style="color:#1DB954">(${c}x)</span>`).join('<br>')
+    : '';
+  renderBlacklist();
   document.getElementById('settings-overlay').classList.add('open');
 }
 
@@ -1001,6 +1162,80 @@ function loadState() {
 }
 
 
+
+
+
+// ── BLACKLIST ──
+function getBlacklist() {
+  try { return JSON.parse(localStorage.getItem('jukebox_blacklist') || '[]'); } catch(e) { return []; }
+}
+function saveBlacklist(b) { localStorage.setItem('jukebox_blacklist', JSON.stringify(b)); }
+
+function isBlacklisted(track) {
+  const bl = getBlacklist();
+  const name = (track.name || '').toLowerCase();
+  const artists = (track.artists || []).map(a => (a.name||'').toLowerCase());
+  return bl.some(entry => {
+    const e = entry.toLowerCase();
+    return name.includes(e) || artists.some(a => a.includes(e));
+  });
+}
+
+function addToBlacklist(term) {
+  const bl = getBlacklist();
+  if (!bl.includes(term)) { bl.push(term); saveBlacklist(bl); }
+}
+
+function removeFromBlacklist(idx) {
+  const bl = getBlacklist();
+  bl.splice(idx, 1);
+  saveBlacklist(bl);
+  renderBlacklist();
+}
+
+function renderBlacklist() {
+  const bl = getBlacklist();
+  const el = document.getElementById('blacklist-items');
+  if (!el) return;
+  el.innerHTML = bl.length ? bl.map((b, i) =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <span style="font-size:14px;color:rgba(255,255,255,0.7);">${b}</span>
+      <button onclick="removeFromBlacklist(${i})" style="background:rgba(255,60,60,0.15);border:1px solid rgba(255,60,60,0.25);border-radius:16px;padding:4px 12px;font-size:12px;color:#ff7070;cursor:pointer;font-family:inherit;">Remove</button>
+    </div>`
+  ).join('') : '<p style="font-size:13px;color:rgba(255,255,255,0.2);padding:8px 0;">No blocked songs or artists</p>';
+}
+
+// ── REVENUE TRACKING ──
+function getRevenue() {
+  try { return JSON.parse(localStorage.getItem('jukebox_revenue') || '{}'); } catch(e) { return {}; }
+}
+function saveRevenue(r) { localStorage.setItem('jukebox_revenue', JSON.stringify(r)); }
+
+function trackCreditInserted() {
+  const r = getRevenue();
+  const today = new Date().toISOString().split('T')[0];
+  if (!r[today]) r[today] = { credits: 0, songs: 0, topSongs: {} };
+  r[today].credits += creditsPerTap;
+  saveRevenue(r);
+}
+
+function trackSongPlayed(name, artist, uri) {
+  const r = getRevenue();
+  const today = new Date().toISOString().split('T')[0];
+  if (!r[today]) r[today] = { credits: 0, songs: 0, topSongs: {} };
+  r[today].songs++;
+  const key = name + ' — ' + artist;
+  r[today].topSongs[key] = (r[today].topSongs[key] || 0) + 1;
+  saveRevenue(r);
+}
+
+function getRevenueReport() {
+  const r = getRevenue();
+  const today = new Date().toISOString().split('T')[0];
+  const d = r[today] || { credits: 0, songs: 0, topSongs: {} };
+  const top = Object.entries(d.topSongs).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  return { credits: d.credits, songs: d.songs, top };
+}
 
 // ── STAFF PANEL ──
 let staffSearchTimer = null;
@@ -1097,7 +1332,7 @@ async function staffDoSearch(q) {
     const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10`);
     if (!r || !r.ok) { document.getElementById('staff-status').textContent = 'Search failed.'; return; }
     const d = await r.json();
-    const tracks = d.tracks?.items || [];
+    const tracks = (d.tracks?.items || []).filter(t => !isBlacklisted(t));
     document.getElementById('staff-status').textContent = '';
     if (!tracks.length) { document.getElementById('staff-status').textContent = 'No results.'; return; }
     const safe = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
