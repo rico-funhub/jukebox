@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FUNHUB Jukebox</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #0a0a0a;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .screen.active { display: flex; }
+
+    /* ── AUTH ── */
+    #screen-auth { gap: 1.5rem; }
+    #screen-auth p { font-size: 15px; color: #888; }
+    .btn-green {
+      background: #1DB954; color: #fff; border: none;
+      border-radius: 32px; padding: 16px 48px;
+      font-size: 17px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-green:active { transform: scale(0.97); }
+    .btn-green:hover { background: #1ed760; }
+
+    /* ── ATTRACT ── */
+    #screen-attract { gap: 2rem; text-align: center; }
+    .attract-logo {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: #333;
+      text-transform: uppercase;
+    }
+    .attract-main {
+      font-size: clamp(52px, 10vw, 96px);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: #fff;
+      animation: attractpulse 2s ease-in-out infinite;
+      line-height: 1;
+    }
+    @keyframes attractpulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+    .attract-sub {
+      font-size: clamp(14px, 2.5vw, 20px);
+      color: #444;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* ── NOW PLAYING ── */
+    #screen-playing {
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 0;
+    }
+
+    .playing-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem;
+      gap: 1.25rem;
+      height: 100vh;
+      border-right: 1px solid #161616;
+    }
+
+    .playing-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: #1DB954;
+      text-transform: uppercase;
+    }
+
+    .playing-art {
+      width: min(280px, 35vw);
+      height: min(280px, 35vw);
+      border-radius: 8px;
+      background: #111;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .playing-art img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    .playing-art-placeholder {
+      width: 100%; height: 100%;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+    }
+
+    .playing-track {
+      font-size: clamp(20px, 3vw, 32px);
+      font-weight: 800;
+      color: #fff;
+      text-align: center;
+      line-height: 1.2;
+      max-width: 340px;
+    }
+
+    .playing-artist {
+      font-size: clamp(14px, 2vw, 18px);
+      color: #888;
+      text-align: center;
+    }
+
+    .tap-more {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: #333;
+      text-transform: uppercase;
+      animation: attractpulse 2.5s ease-in-out infinite;
+      margin-top: 0.5rem;
+    }
+
+    /* START BTN — shows when paused */
+    .start-btn {
+      background: #1DB954; color: #fff; border: none;
+      border-radius: 32px; padding: 14px 40px;
+      font-size: 16px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      letter-spacing: 0.05em;
+    }
+    .start-btn:active { transform: scale(0.97); }
+
+    /* QUEUE RIGHT PANEL */
+    .playing-right {
+      width: 320px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 2.5rem 2rem;
+      overflow-y: auto;
+    }
+
+    .queue-heading {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: #333;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+      flex-shrink: 0;
+    }
+
+    .queue-list { list-style: none; flex: 1; }
+
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #141414;
+    }
+    .queue-item:last-child { border-bottom: none; }
+
+    .queue-num { font-size: 12px; color: #2a2a2a; width: 18px; flex-shrink: 0; text-align: center; }
+
+    .queue-thumb {
+      width: 44px; height: 44px;
+      border-radius: 4px;
+      background: #111;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+    .queue-info { overflow: hidden; flex: 1; }
+    .queue-track { font-size: 13px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-artist { font-size: 12px; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .queue-empty { font-size: 13px; color: #2a2a2a; padding: 1rem 0; }
+
+    /* ── SEARCH SCREEN ── */
+    #screen-search {
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      background: #0a0a0a;
+    }
+
+    .search-top {
+      width: 100%;
+      padding: 2rem 3rem 1.5rem;
+      border-bottom: 1px solid #161616;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .search-input {
+      flex: 1;
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 22px;
+      color: #fff;
+      font-family: inherit;
+      outline: none;
+    }
+    .search-input:focus { border-color: #1DB954; }
+    .search-input::placeholder { color: #2a2a2a; }
+
+    .search-go {
+      background: #1DB954; color: #fff; border: none;
+      border-radius: 12px; padding: 16px 28px;
+      font-size: 18px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      white-space: nowrap;
+      transition: background 0.1s;
+    }
+    .search-go:hover { background: #1ed760; }
+
+    .search-cancel {
+      background: none; color: #444; border: none;
+      font-size: 15px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      white-space: nowrap;
+      padding: 16px 8px;
+    }
+    .search-cancel:hover { color: #fff; }
+
+    .search-results-wrap {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      padding: 0 3rem;
+    }
+
+    .search-results { list-style: none; padding: 1rem 0; }
+
+    .search-result {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.1s;
+      border-bottom: 1px solid #111;
+    }
+    .search-result:last-child { border-bottom: none; }
+    .search-result:hover, .search-result:active { background: #141414; }
+
+    .search-thumb {
+      width: 56px; height: 56px;
+      border-radius: 6px;
+      background: #141414;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .search-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+    .search-info { flex: 1; overflow: hidden; }
+    .search-track { font-size: 17px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-artist { font-size: 14px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+    .search-add-btn {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: #1DB954;
+      color: #fff;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.1s, transform 0.1s;
+    }
+    .search-add-btn:active { transform: scale(0.92); }
+
+    .search-status { font-size: 15px; color: #333; padding: 2rem 0; text-align: center; }
+
+    /* ── CONFIRM SCREEN ── */
+    #screen-confirm { gap: 2rem; text-align: center; }
+
+    .confirm-art {
+      width: 180px; height: 180px;
+      border-radius: 8px;
+      background: #111;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .confirm-art img { width: 100%; height: 100%; object-fit: cover; }
+
+    .confirm-label {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: #1DB954;
+      text-transform: uppercase;
+    }
+
+    .confirm-track {
+      font-size: clamp(24px, 4vw, 42px);
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+      max-width: 600px;
+    }
+
+    .confirm-artist {
+      font-size: clamp(14px, 2vw, 20px);
+      color: #888;
+    }
+
+    /* SDK status */
+    #sdk-status {
+      position: fixed;
+      bottom: 1rem; right: 1.5rem;
+      font-size: 11px;
+      color: #222;
+      letter-spacing: 0.05em;
+      z-index: 50;
+    }
+  </style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="screen-auth" class="screen active">
+  <p style="font-size:13px;letter-spacing:0.15em;color:#333;text-transform:uppercase;margin-bottom:0.5rem">FUNHUB Jukebox</p>
+  <p style="font-size:15px;color:#666;margin-bottom:1rem">Connect your Spotify account to start</p>
+  <button class="btn-green" onclick="startAuth()">Connect Spotify</button>
+</div>
+
+<!-- ATTRACT -->
+<div id="screen-attract" class="screen">
+  <p class="attract-logo">FUNHUB Jukebox</p>
+  <p class="attract-main">TAP YOUR CARD</p>
+  <p class="attract-sub">to request a song</p>
+</div>
+
+<!-- NOW PLAYING -->
+<div id="screen-playing" class="screen">
+  <div class="playing-left">
+    <p class="playing-label" id="playing-label">Now playing</p>
+    <div class="playing-art" id="playing-art">
+      <div class="playing-art-placeholder" id="art-placeholder">♫</div>
+      <img id="art-img" style="display:none" alt="" />
+    </div>
+    <div id="playing-track" class="playing-track"></div>
+    <div id="playing-artist" class="playing-artist"></div>
+    <button class="start-btn" id="start-btn" onclick="handleStart()" style="display:none">▶ Start</button>
+    <p class="tap-more" id="tap-more" style="display:none">TAP YOUR CARD TO ADD MORE</p>
+  </div>
+  <div class="playing-right">
+    <p class="queue-heading">Up next</p>
+    <ul class="queue-list" id="queue-list">
+      <li class="queue-empty">Queue is empty</li>
+    </ul>
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div id="screen-search" class="screen">
+  <div class="search-top">
+    <input
+      id="search-input"
+      class="search-input"
+      type="text"
+      placeholder="Search for a song or artist..."
+      autocomplete="off"
+      onkeydown="if(event.key==='Enter') doSearch()"
+    />
+    <button class="search-go" onclick="doSearch()">Search</button>
+    <button class="search-cancel" onclick="closeSearch()">Cancel</button>
+  </div>
+  <div class="search-results-wrap">
+    <p id="search-status" class="search-status">Start typing to search</p>
+    <ul id="search-results" class="search-results"></ul>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div id="screen-confirm" class="screen">
+  <p class="confirm-label">Added to queue</p>
+  <div class="confirm-art" id="confirm-art">
+    <img id="confirm-img" style="display:none;width:100%;height:100%;object-fit:cover" alt="" />
+  </div>
+  <div id="confirm-track" class="confirm-track"></div>
+  <div id="confirm-artist" class="confirm-artist"></div>
+</div>
+
+<p id="sdk-status"></p>
+
+<script src="https://sdk.scdn.co/spotify-player.js"></script>
+<script>
+const CLIENT_ID = 'd62edf739b664da690510800a0c5beec';
+const REDIRECT_URI = 'https://rico-funhub.github.io/jukebox';
+const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing streaming user-read-email user-read-private';
+
+let accessToken = null;
+let tokenExpiry = null;
+let refreshToken = null;
+let deviceId = null;
+let spotifyPlayer = null;
+let currentScreen = 'auth';
+let isPlaying = false;
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  currentScreen = id;
+}
+
+// ── AUTH ──
+function b64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+async function generatePKCE() {
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  return { verifier, challenge };
+}
+
+async function startAuth() {
+  const { verifier, challenge } = await generatePKCE();
+  const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('spotify_state', state);
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID, response_type: 'code',
+    redirect_uri: REDIRECT_URI, scope: SCOPES,
+    state, code_challenge_method: 'S256', code_challenge: challenge
+  });
+  window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
+}
+
+async function exchangeCode(code) {
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code', code,
+      redirect_uri: REDIRECT_URI, client_id: CLIENT_ID, code_verifier: verifier
+    })
+  });
+  const data = await res.json();
+  if (data.access_token) { saveTokens(data); return true; }
+  return false;
+}
+
+function saveTokens(data) {
+  accessToken = data.access_token;
+  if (data.refresh_token) refreshToken = data.refresh_token;
+  tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+  sessionStorage.setItem('spotify_token', accessToken);
+  if (refreshToken) sessionStorage.setItem('spotify_refresh', refreshToken);
+  sessionStorage.setItem('spotify_expiry', tokenExpiry);
+}
+
+async function refreshAccessToken() {
+  const rt = refreshToken || sessionStorage.getItem('spotify_refresh');
+  if (!rt) { showScreen('auth'); return false; }
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt, client_id: CLIENT_ID })
+  });
+  const data = await res.json();
+  if (data.access_token) { saveTokens(data); return true; }
+  showScreen('auth'); return false;
+}
+
+let tokenFailCount = 0;
+
+async function ensureToken() {
+  if (!accessToken) {
+    accessToken = sessionStorage.getItem('spotify_token');
+    tokenExpiry = parseInt(sessionStorage.getItem('spotify_expiry') || '0');
+    refreshToken = sessionStorage.getItem('spotify_refresh');
+  }
+  if (!accessToken) { tokenFailCount++; if (tokenFailCount > 3) { sessionStorage.clear(); showScreen('auth'); } return false; }
+  if (Date.now() > tokenExpiry) {
+    const ok = await refreshAccessToken();
+    if (!ok) { tokenFailCount++; if (tokenFailCount > 3) { sessionStorage.clear(); showScreen('auth'); } }
+    else { tokenFailCount = 0; }
+    return ok;
+  }
+  tokenFailCount = 0;
+  return true;
+}
+
+// ── COIN SOUND ──
+function playCoinSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[880,0,0.08],[1320,0.09,0.08],[1760,0.18,0.14]].forEach(([freq,start,dur]) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'square';
+      o.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      g.gain.setValueAtTime(0.15, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      o.start(ctx.currentTime + start);
+      o.stop(ctx.currentTime + start + dur + 0.01);
+    });
+  } catch(e) {}
+}
+
+// ── PLAYBACK STATE ──
+function onStateChange(state) {
+  if (!state) { showScreen('attract'); isPlaying = false; return; }
+  const track = state.track_window?.current_track;
+  if (!track) { showScreen('attract'); isPlaying = false; return; }
+
+  isPlaying = !state.paused;
+
+  const art = track.album?.images?.[0]?.url || null;
+  document.getElementById('playing-track').textContent = track.name;
+  document.getElementById('playing-artist').textContent = track.artists.map(a => a.name).join(', ');
+
+  const img = document.getElementById('art-img');
+  const placeholder = document.getElementById('art-placeholder');
+  if (art) { img.src = art; img.style.display = 'block'; placeholder.style.display = 'none'; }
+  else { img.style.display = 'none'; placeholder.style.display = 'flex'; }
+
+  document.getElementById('playing-label').textContent = isPlaying ? 'Now playing' : 'Paused';
+  document.getElementById('start-btn').style.display = isPlaying ? 'none' : 'inline-block';
+  document.getElementById('tap-more').style.display = isPlaying ? 'block' : 'none';
+
+  if (currentScreen !== 'search' && currentScreen !== 'confirm') {
+    showScreen('playing');
+  }
+
+  fetchQueue();
+}
+
+// ── QUEUE ──
+async function fetchQueue() {
+  if (!await ensureToken()) return;
+  try {
+    const res = await fetch('https://api.spotify.com/v1/me/player/queue', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const currentId = data.currently_playing?.id || null;
+    const seen = new Set();
+    if (currentId) seen.add(currentId);
+    const items = (data.queue || []).filter(t => {
+      if (!t.id || seen.has(t.id)) return false;
+      seen.add(t.id); return true;
+    }).slice(0, 8);
+
+    const list = document.getElementById('queue-list');
+    if (!items.length) {
+      list.innerHTML = '<li class="queue-empty">Queue is empty</li>';
+      return;
+    }
+    list.innerHTML = items.map((t, i) => {
+      const art = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
+      return `<li class="queue-item">
+        <span class="queue-num">${i+1}</span>
+        <div class="queue-thumb">${art ? `<img src="${art}" alt="">` : ''}</div>
+        <div class="queue-info">
+          <div class="queue-track">${t.name}</div>
+          <div class="queue-artist">${t.artists.map(a=>a.name).join(', ')}</div>
+        </div>
+      </li>`;
+    }).join('');
+  } catch(e) {}
+}
+
+// ── START (when paused) ──
+async function handleStart() {
+  if (!await ensureToken()) return;
+  try {
+    if (spotifyPlayer) await spotifyPlayer.nextTrack();
+    else await fetch('https://api.spotify.com/v1/me/player/next', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken }
+    });
+  } catch(e) {}
+}
+
+// ── SEARCH ──
+function openSearch() {
+  playCoinSound();
+  showScreen('search');
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-results').innerHTML = '';
+  document.getElementById('search-status').textContent = 'Start typing to search';
+  setTimeout(() => document.getElementById('search-input').focus(), 80);
+}
+
+function closeSearch() {
+  if (isPlaying) showScreen('playing');
+  else showScreen('attract');
+}
+
+async function doSearch() {
+  if (!await ensureToken()) return;
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  document.getElementById('search-status').textContent = 'Searching...';
+  document.getElementById('search-results').innerHTML = '';
+  try {
+    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8`, {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    const data = await res.json();
+    const tracks = data.tracks?.items || [];
+    document.getElementById('search-status').textContent = '';
+    if (!tracks.length) {
+      document.getElementById('search-status').textContent = 'No results found.';
+      return;
+    }
+    document.getElementById('search-results').innerHTML = tracks.map(t => {
+      const art = t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || '';
+      const safeUri = t.uri.replace(/'/g, "\\'");
+      const safeName = t.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      const safeArtist = t.artists.map(a=>a.name).join(', ').replace(/'/g,"\\'");
+      const safeArt = art.replace(/'/g,"\\'");
+      return `<li class="search-result" onclick="queueTrack('${safeUri}','${safeName}','${safeArtist}','${safeArt}')">
+        <div class="search-thumb">${art ? `<img src="${art}" alt="">` : ''}</div>
+        <div class="search-info">
+          <div class="search-track">${t.name}</div>
+          <div class="search-artist">${t.artists.map(a=>a.name).join(', ')}</div>
+        </div>
+        <button class="search-add-btn" aria-label="Add">+</button>
+      </li>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('search-status').textContent = 'Search failed. Try again.';
+  }
+}
+
+async function queueTrack(uri, name, artist, art) {
+  if (!await ensureToken()) return;
+  try {
+    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+    const url = did
+      ? `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}&device_id=${did}`
+      : `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}`;
+    await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } });
+
+    // Show confirm screen
+    document.getElementById('confirm-track').textContent = name;
+    document.getElementById('confirm-artist').textContent = artist;
+    const img = document.getElementById('confirm-img');
+    if (art) { img.src = art; img.style.display = 'block'; }
+    else { img.style.display = 'none'; }
+    showScreen('confirm');
+
+    setTimeout(() => {
+      fetchQueue();
+      if (isPlaying) showScreen('playing');
+      else showScreen('attract');
+    }, 2500);
+  } catch(e) {
+    document.getElementById('search-status').textContent = 'Could not add song. Is Spotify active?';
+  }
+}
+
+// ── T KEY ──
+document.addEventListener('keydown', e => {
+  if (currentScreen === 'search') return;
+  if (e.key === 't' || e.key === 'T') {
+    e.preventDefault();
+    openSearch();
+  }
+});
+
+// ── SDK ──
+window.onSpotifyWebPlaybackSDKReady = () => {
+  initSpotifyPlayer();
+};
+
+async function initSpotifyPlayer() {
+  if (!await ensureToken()) return;
+  spotifyPlayer = new Spotify.Player({
+    name: 'FUNHUB Jukebox',
+    getOAuthToken: async cb => { await ensureToken(); cb(accessToken); },
+    volume: 1.0
+  });
+
+  spotifyPlayer.addListener('ready', ({ device_id }) => {
+    deviceId = device_id;
+    sessionStorage.setItem('spotify_device_id', device_id);
+    document.getElementById('sdk-status').textContent = '● Audio ready';
+    document.getElementById('sdk-status').style.color = '#1DB954';
+    transferPlayback(device_id);
+  });
+
+  spotifyPlayer.addListener('not_ready', () => {
+    deviceId = null;
+    document.getElementById('sdk-status').textContent = '○ Audio disconnected';
+    document.getElementById('sdk-status').style.color = '#333';
+  });
+
+  spotifyPlayer.addListener('player_state_changed', onStateChange);
+  spotifyPlayer.connect();
+}
+
+async function transferPlayback(device_id) {
+  if (!await ensureToken()) return;
+  await fetch('https://api.spotify.com/v1/me/player', {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_ids: [device_id], play: false })
+  });
+}
+
+// ── INIT ──
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+
+  // ?reset=1 clears everything and goes back to auth
+  if (params.get('reset') === '1') {
+    sessionStorage.clear();
+    window.history.replaceState(null, '', window.location.pathname);
+    showScreen('auth');
+    return;
+  }
+
+  const code = params.get('code');
+  const state = params.get('state');
+  const savedState = sessionStorage.getItem('spotify_state');
+
+  if (code && state === savedState) {
+    window.history.replaceState(null, '', window.location.pathname);
+    const ok = await exchangeCode(code);
+    if (ok) { showScreen('attract'); return; }
+  }
+
+  if (await ensureToken()) {
+    showScreen('attract');
+  } else {
+    showScreen('auth');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
