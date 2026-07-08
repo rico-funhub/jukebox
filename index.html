@@ -401,6 +401,16 @@
     }
     .credits-dot { width: 9px; height: 9px; border-radius: 50%; background: #D4AF37; }
 
+    .free-badge {
+      position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%); display: none;
+      align-items: center; gap: 9px;
+      background: rgba(29,185,84,0.14); border: 1.5px solid rgba(29,185,84,0.5);
+      border-radius: 40px; padding: 9px 22px;
+      font-size: 15px; font-weight: 800; color: #1DB954; letter-spacing: 0.14em; z-index: 100; text-transform: uppercase;
+    }
+    .free-badge.on { display: flex; }
+    .free-dot { width: 8px; height: 8px; border-radius: 50%; background: #1DB954; animation: zoom 2s ease-in-out infinite; }
+
     /* ── FLAGS ── */
     .lang-switcher { position: fixed; bottom: 1.5rem; left: 1.5rem; display: flex; gap: 8px; z-index: 100; }
     .lang-btn {
@@ -477,7 +487,7 @@
 </div>
 
 <!-- NOW PLAYING -->
-<div id="screen-playing" class="screen" onclick="if(credits>0)openSongPicker()">
+<div id="screen-playing" class="screen" onclick="if(canPick())openSongPicker()">
   <div class="playing-bg" id="playing-bg"></div>
 
   <div class="playing-left">
@@ -593,6 +603,9 @@
 <!-- CREDITS -->
 <div class="credits-badge" id="credits-badge"><div class="credits-dot"></div><span id="credits-text"></span></div>
 
+<!-- FREE MODE -->
+<div class="free-badge" id="free-badge"><div class="free-dot"></div>Free Play</div>
+
 <!-- FLAGS -->
 <div class="lang-switcher">
   <button class="lang-btn active" data-lang="en" onclick="setLang('en')" title="English">🇺🇸</button>
@@ -602,7 +615,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.0.8</p>
+<p class="version-badge">v1.0.9</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -647,6 +660,10 @@
     <div class="settings-row">
       <div class="settings-label">Reset queue<small>Plays September — clears everything</small></div>
       <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Free mode<small>No card needed — guests pick songs for free</small></div>
+      <button class="s-btn" id="free-toggle-btn" onclick="toggleFreeMode()">Off</button>
     </div>
     <div class="settings-row">
       <div class="settings-label">On-screen keyboard<small>Built-in keyboard for touchscreens</small></div>
@@ -728,6 +745,7 @@ let creditsPerSong = parseInt(localStorage.getItem('jukebox_cps') || '1');
 let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
 let coinKey = localStorage.getItem('jukebox_coin_key') || 't';
 let oskEnabled = localStorage.getItem('jukebox_osk') !== 'off';
+let freeMode = localStorage.getItem('jukebox_free') === 'on';
 let coinKeyLabel = localStorage.getItem('jukebox_coin_key_label') || 'T';
 let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
@@ -818,14 +836,18 @@ function setLang(l) {
   const qe = document.getElementById('queue-empty-text'); if (qe) qe.innerHTML = t.queueEmpty.replace('\n','<br>');
 }
 
+// True when a guest is allowed to pick a song: either they've loaded credits,
+// or the operator has switched on free mode (no card needed).
+function canPick() { return freeMode || credits > 0; }
+
 function attractTap() {
-  if (credits > 0) openSongPicker();
+  if (canPick()) openSongPicker();
 }
 
-// Single source of truth for letting a guest pick a song with loaded credits.
+// Single source of truth for letting a guest pick a song.
 // Works from ANY screen so credits can never get trapped.
 function openSongPicker() {
-  if (credits <= 0) return;
+  if (!canPick()) return;
   // Already picking? do nothing.
   if (currentScreen === 'search') return;
   if (document.getElementById('split-panel').classList.contains('open')) return;
@@ -838,12 +860,13 @@ function updateAttractText() {
   const t = T[lang];
   const tapEl = document.getElementById('attract-tap');
   if (tapEl) {
-    tapEl.textContent = (credits > 0 && !isPlaying) ? t.tapPlay : t.tap;
-    tapEl.classList.toggle('tap-to-play', credits > 0 && !isPlaying);
+    const canGo = canPick() && !isPlaying;
+    tapEl.textContent = canGo ? t.tapPlay : t.tap;
+    tapEl.classList.toggle('tap-to-play', canGo);
   }
   const sub = document.getElementById('attract-sub'); if (sub) sub.textContent = t.sub;
   const ac = document.getElementById('attract-credits');
-  if (ac) ac.textContent = creditsPerTap + (creditsPerTap === 1 ? ' Credit' : ' Credits');
+  if (ac) ac.textContent = freeMode ? 'FREE PLAY' : creditsPerTap + (creditsPerTap === 1 ? ' Credit' : ' Credits');
 }
 
 // ── SCREENS ──
@@ -853,6 +876,7 @@ function showScreen(id) {
   currentScreen = id;
   const cb = document.getElementById('credits-badge');
   cb.style.display = (credits > 0 && id !== 'auth') ? 'flex' : 'none';
+  updateFreeBadge();
   if (id === 'attract') {
     credits = 0; setLang('en'); updateAttractText();
     hideOsk();
@@ -1157,12 +1181,12 @@ async function queueTrack(uri, name, artist, art) {
       return;
     }
 
-    // SUCCESS — now spend the credit
-    credits = Math.max(0, credits - creditsPerSong);
+    // SUCCESS — spend the credit (free mode: nothing to spend)
+    if (!freeMode) credits = Math.max(0, credits - creditsPerSong);
     updateCredits();
     trackSongPlayed(name, artist, uri);
 
-    const moreCredits = credits >= creditsPerSong;
+    const moreCredits = freeMode || credits >= creditsPerSong;
     if (moreCredits) {
       // Still has credits: confirm the add, clear the box, keep searching for the next song
       const wasSplit = document.getElementById('split-panel').classList.contains('open');
@@ -1316,6 +1340,7 @@ document.addEventListener('keydown', e => {
   if (!oskEnabled && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   e.preventDefault();
   coinSound();
+  if (freeMode) { openSongPicker(); return; }
   credits += creditsPerTap;
   updateCredits();
   trackCreditInserted();
@@ -1350,6 +1375,7 @@ function openSettings() {
   document.getElementById('s-credits-loaded').textContent = credits + ' credits';
   const ckd = document.getElementById('coin-key-display'); if (ckd) ckd.textContent = coinKeyLabel;
   const otb = document.getElementById('osk-toggle-btn'); if (otb) otb.textContent = oskEnabled ? 'On' : 'Off';
+  const ftb = document.getElementById('free-toggle-btn'); if (ftb) ftb.textContent = freeMode ? 'On' : 'Off';
   document.getElementById('cpt-val').textContent = creditsPerTap;
   document.getElementById('cps-val').textContent = creditsPerSong;
   const rev = getRevenueReport();
@@ -1405,6 +1431,21 @@ function toggleOskSetting() {
   if (btn) btn.textContent = oskEnabled ? 'On' : 'Off';
   applyOskMode();
   if (!oskEnabled) hideOsk();
+}
+
+function updateFreeBadge() {
+  const b = document.getElementById('free-badge');
+  if (b) b.classList.toggle('on', freeMode && currentScreen !== 'auth');
+}
+
+function toggleFreeMode() {
+  freeMode = !freeMode;
+  localStorage.setItem('jukebox_free', freeMode ? 'on' : 'off');
+  const btn = document.getElementById('free-toggle-btn');
+  if (btn) btn.textContent = freeMode ? 'On' : 'Off';
+  updateFreeBadge();
+  updateAttractText();
+  updateCredits();
 }
 
 function startCoinMapping() {
@@ -1953,12 +1994,12 @@ function startGamepadCoinPoll() {
         gp.buttons[idx]._wasPressed = true;
         // Trigger coin
         coinSound();
+        if (freeMode) { openSongPicker(); return; }
         credits += creditsPerTap;
         updateCredits();
         updateAttractText();
         trackCreditInserted();
-        if (isPlaying) { const sp = document.getElementById('split-panel'); if (!sp.classList.contains('open')) openSplit(); }
-        else if (currentScreen === 'attract') openSearch();
+        openSongPicker();
       } else if (!gp.buttons[idx].pressed) {
         gp.buttons[idx]._wasPressed = false;
       }
