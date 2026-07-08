@@ -223,23 +223,22 @@
       opacity: 0;
     }
     .disc.slide-in {
-      animation: discSlideIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation: discSlideIn 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
     .disc.spinning {
-      animation: discSlideIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards,
-                 spin 6s linear 1.2s infinite;
+      animation: spin 6s linear infinite;
     }
     .disc.slide-out {
       animation: discSlideOut 0.9s cubic-bezier(0.55, 0, 1, 0.45) forwards;
     }
     @keyframes discSlideIn {
-      0% { transform: translateX(-110vw); opacity: 0; }
-      60% { opacity: 1; }
-      100% { transform: translateX(0); opacity: 1; }
+      0% { transform: translateX(-110vw) rotate(-360deg); opacity: 0; }
+      50% { opacity: 1; }
+      100% { transform: translateX(0) rotate(0deg); opacity: 1; }
     }
     @keyframes discSlideOut {
-      0% { transform: translateX(0); opacity: 1; }
-      100% { transform: translateX(55vw); opacity: 0; }
+      0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateX(55vw) rotate(360deg); opacity: 0; }
     }
     .disc img {
       position: absolute; inset: 0;
@@ -666,6 +665,7 @@ const LOGO = 'https://images.squarespace-cdn.com/content/v1/674abd042502920e4f68
 let accessToken = null, tokenExpiry = 0, refreshToken = null;
 let deviceId = null, spotifyPlayer = null;
 let isPlaying = false, currentScreen = 'auth', sdkReady = false;
+let lastTrackUri = null;
 let credits = 0;
 let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
 let creditsPerSong = parseInt(localStorage.getItem('jukebox_cps') || '1');
@@ -875,6 +875,7 @@ function onState(state) {
   }
   if (state.paused) {
     isPlaying = false;
+    lastTrackUri = null;
     if (sdkReady && (currentScreen === 'playing' || currentScreen === 'attract')) {
       // Slide disc out before switching screen
       const disc = document.getElementById('disc');
@@ -891,6 +892,12 @@ function onState(state) {
   }
   isPlaying = true;
   const track = state.track_window.current_track;
+  // Skip re-animating if same track already playing
+  if (track.uri === lastTrackUri) {
+    fetchQueue();
+    return;
+  }
+  lastTrackUri = track.uri;
   const art = track.album?.images?.[0]?.url || null;
   document.getElementById('playing-track').textContent = track.name;
   document.getElementById('playing-artist').textContent = track.artists.map(a => a.name).join(', ');
@@ -898,16 +905,15 @@ function onState(state) {
   const bg = document.getElementById('playing-bg');
   if (art) { img.src = art; img.style.display = 'block'; bg.style.backgroundImage = `url(${art})`; }
   else { img.style.display = 'none'; bg.style.backgroundImage = 'none'; }
-  // Slide disc in from left
+  // Slide disc in from left, spinning during slide
   const disc = document.getElementById('disc');
   disc.classList.remove('slide-in', 'slide-out', 'spinning');
   void disc.offsetWidth;
-  // Start slide-in, then add spinning class after it settles
   disc.classList.add('slide-in');
   setTimeout(() => {
     disc.classList.remove('slide-in');
     disc.classList.add('spinning');
-  }, 1200);
+  }, 1400);
   saveState(track.name, track.artists.map(a=>a.name).join(', '), art);
   if (currentScreen !== 'search') showScreen('playing');
   fetchQueue();
