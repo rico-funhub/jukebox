@@ -50,8 +50,13 @@
       font-weight: 900;
       letter-spacing: 0.04em;
       color: #fff;
-      animation: pulse 2s ease-in-out infinite;
+      animation: zoom 2s ease-in-out infinite;
       line-height: 1;
+      display: inline-block;
+    }
+    @keyframes zoom {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
     }
     .attract-sub {
       font-size: clamp(15px, 2.4vw, 22px);
@@ -83,7 +88,7 @@
     }
 
     .playing-left {
-      flex: 1;
+      flex: 1.5;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -109,8 +114,8 @@
     /* DISC */
     .disc-wrapper {
       position: relative;
-      width: min(260px, 30vw);
-      height: min(260px, 30vw);
+      width: min(300px, 35vw);
+      height: min(300px, 35vw);
     }
 
     .disc {
@@ -315,6 +320,49 @@
     }
 
 
+
+    /* ── LANG SWITCHER ── */
+    .lang-switcher {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      display: flex;
+      gap: 6px;
+      z-index: 100;
+    }
+    .lang-btn {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.05em;
+      transition: all 0.15s;
+    }
+    .lang-btn.active {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.3);
+      color: #fff;
+    }
+    .lang-btn:hover { color: #fff; }
+
+    /* ── AUDIO READY ── */
+    .audio-ready-badge {
+      position: fixed;
+      top: 1.25rem;
+      right: 1.5rem;
+      font-size: 11px;
+      font-weight: 600;
+      color: #1DB954;
+      letter-spacing: 0.08em;
+      z-index: 100;
+      display: none;
+    }
+
     /* ── CREDITS ── */
     .credits-badge {
       position: fixed;
@@ -448,7 +496,7 @@
   <div class="playing-bg" id="playing-bg"></div>
   <div class="playing-left">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="playing-logo" alt="FUNHUB" />
-    <p class="now-badge">Now playing</p>
+    <p class="now-badge"><span id="now-badge-text">Now playing</span></p>
     <div class="disc-wrapper">
       <div class="disc" id="disc">
         <div class="disc-grooves"></div>
@@ -462,7 +510,7 @@
   </div>
   <div class="playing-right" id="playing-right">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="queue-logo" alt="FUNHUB" />
-    <p class="queue-heading">Up next</p>
+    <p class="queue-heading"><span id="queue-heading-text">Up next</span></p>
     <ul class="queue-list" id="queue-list">
       <li class="queue-empty">Queue is empty</li>
     </ul>
@@ -496,7 +544,12 @@
 </div>
 
 <p id="sdk-status"></p>
-<p id="audio-status" class="audio-status"></p>
+<p id="audio-ready-badge" class="audio-ready-badge">● Audio ready</p>
+<div class="lang-switcher">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+</div>
 <div class="credits-badge" id="credits-badge" style="display:none"><div class="credits-dot"></div><span id="credits-text">0 credits</span></div>
 
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
@@ -519,10 +572,10 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + id).classList.add('active');
   currentScreen = id;
-  // Show credits badge on attract and playing screens
   const badge = document.getElementById('credits-badge');
   if (badge) badge.style.display = (credits > 0 && (id === 'attract' || id === 'playing')) ? 'flex' : 'none';
   updateCreditsDisplay();
+  if (id === 'attract') resetLangSession();
 }
 
 // ── AUTH ──
@@ -798,6 +851,91 @@ async function queueTrack(uri, name, artist, art) {
 }
 
 
+
+// ── LANGUAGE ──
+const LANGS = {
+  en: {
+    tap_card: 'TAP YOUR CARD',
+    to_request: 'to request a song',
+    tap_to_play: 'TAP TO PLAY',
+    now_playing: 'Now playing',
+    up_next: 'Up next',
+    tap_add: 'Tap your card to add to the queue',
+    search_placeholder: 'Search for a song or artist...',
+    search_start: 'Start typing to search',
+    searching: 'Searching...',
+    no_results: 'No results found.',
+    search_fail: 'Search failed. Try again.',
+    cant_add: 'Could not add song. Make sure Spotify is open.',
+    cancel: 'Cancel',
+    select_lang: 'Choose your language',
+  },
+  fr: {
+    tap_card: 'TAPPEZ VOTRE CARTE',
+    to_request: 'pour demander une chanson',
+    tap_to_play: 'TAPPEZ POUR JOUER',
+    now_playing: 'En cours',
+    up_next: 'À suivre',
+    tap_add: 'Tappez votre carte pour ajouter',
+    search_placeholder: 'Rechercher une chanson...',
+    search_start: 'Commencez à écrire',
+    searching: 'Recherche...',
+    no_results: 'Aucun résultat.',
+    search_fail: 'Échec. Réessayez.',
+    cant_add: 'Impossible d'ajouter. Ouvrez Spotify.',
+    cancel: 'Annuler',
+    select_lang: 'Choisissez votre langue',
+  },
+  es: {
+    tap_card: 'TOCA TU TARJETA',
+    to_request: 'para pedir una canción',
+    tap_to_play: 'TOCA PARA REPRODUCIR',
+    now_playing: 'Reproduciendo',
+    up_next: 'A continuación',
+    tap_add: 'Toca tu tarjeta para agregar',
+    search_placeholder: 'Buscar una canción...',
+    search_start: 'Empieza a escribir',
+    searching: 'Buscando...',
+    no_results: 'Sin resultados.',
+    search_fail: 'Error. Inténtalo de nuevo.',
+    cant_add: 'No se pudo agregar. Abre Spotify.',
+    cancel: 'Cancelar',
+    select_lang: 'Elige tu idioma',
+  }
+};
+
+let currentLang = 'en';
+let langSelected = false;
+
+function setLang(lang) {
+  currentLang = lang;
+  langSelected = true;
+  const t = LANGS[lang];
+
+  // Update all text elements
+  const attractTap = document.querySelector('.attract-tap');
+  if (attractTap) attractTap.textContent = credits > 0 && !isPlaying ? t.tap_to_play : t.tap_card;
+  const attractSub = document.querySelector('.attract-sub');
+  if (attractSub) attractSub.textContent = t.to_request;
+  document.getElementById('now-badge-text').textContent = t.now_playing;
+  document.getElementById('queue-heading-text').textContent = t.up_next;
+  document.getElementById('tap-add').textContent = t.tap_add;
+  const si = document.getElementById('search-input');
+  if (si) si.placeholder = t.search_placeholder;
+  const sc = document.getElementById('search-cancel');
+  if (sc) sc.textContent = t.cancel;
+
+  // Update lang switcher active state
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+}
+
+function resetLangSession() {
+  langSelected = false;
+  setLang('en');
+}
+
 // ── CREDITS ──
 let credits = 0;
 
@@ -937,8 +1075,8 @@ async function initPlayer() {
   spotifyPlayer.addListener('ready', ({ device_id }) => {
     deviceId = device_id;
     sessionStorage.setItem('spotify_device_id', device_id);
-    const as = document.getElementById('audio-status');
-    if (as) { as.textContent = '● Audio ready'; as.style.display = 'block'; }
+    const ab = document.getElementById('audio-ready-badge');
+    if (ab) ab.style.display = 'block';
     fetch('https://api.spotify.com/v1/me/player', {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
@@ -947,8 +1085,8 @@ async function initPlayer() {
   });
   spotifyPlayer.addListener('not_ready', () => {
     deviceId = null;
-    const as2 = document.getElementById('audio-status');
-    if (as2) { as2.textContent = '○ Audio disconnected'; as2.style.color = '#555'; }
+    const ab2 = document.getElementById('audio-ready-badge');
+    if (ab2) ab2.style.display = 'none';
   });
   spotifyPlayer.addListener('player_state_changed', onStateChange);
   spotifyPlayer.connect();
