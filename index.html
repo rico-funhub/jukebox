@@ -238,13 +238,13 @@
       position: fixed;
       bottom: 0; left: 0; right: 0;
       z-index: 999;
-      padding: 12px 4px 18px;
+      padding: 12px 8px 18px;
       background: rgba(20,20,20,0.97);
       border-top: 1px solid rgba(255,255,255,0.08);
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
     }
     #osk-fixed.visible { display: flex; }
     .osk-row {
@@ -252,13 +252,13 @@
       gap: 6px;
       justify-content: center;
       width: 100%;
-      padding: 0 4px;
+      max-width: 900px;
       box-sizing: border-box;
     }
     .osk-key {
       flex: 1;
-      max-width: calc(10% - 6px);
       height: 50px;
+      min-width: 0;
       border-radius: 9px; border: none;
       background: #3a3a3c;
       color: #fff; font-size: 18px; font-weight: 400;
@@ -269,13 +269,16 @@
       box-shadow: 0 2px 0 rgba(0,0,0,0.5);
     }
     .osk-key:active { background: #636366; box-shadow: none; transform: translateY(1px); }
-    .osk-key.key-del { background: #636366; flex: 1.5; max-width: calc(15% - 6px); font-size: 20px; }
-    .osk-key.key-caps { background: #636366; flex: 1.5; max-width: calc(15% - 6px); font-size: 20px; }
-    .osk-key.key-caps.caps-on { background: #d1d1d6; color: #000; }
-    .osk-key.key-hide { background: #636366; flex: 1.5; max-width: calc(15% - 6px); font-size: 18px; }
-    .osk-key.key-space { background: #3a3a3c; flex: 6; max-width: 999px; font-size: 14px; color: rgba(255,255,255,0.3); }
-    .osk-key.key-clear { background: #8b0000; flex: 1.5; max-width: calc(15% - 6px); font-size: 13px; font-weight: 700; }
-    .osk-spacer { flex: 1.5; max-width: calc(15% - 6px); }
+    .osk-spacer-sm { flex: 0.75; min-width: 0; }
+    .osk-key.key-del   { background: #636366; flex: 1.5;  font-size: 20px; }
+    .osk-key.key-caps  { background: #636366; flex: 1.25; font-size: 19px; }
+    .osk-key.key-enter { background: #636366; flex: 1.25; font-size: 19px; }
+    .osk-key.key-shift { background: #636366; flex: 2.25; font-size: 19px; }
+    .osk-key.key-caps.caps-on,
+    .osk-key.key-shift.shift-on { background: #d1d1d6; color: #000; }
+    .osk-key.key-hide  { background: #636366; flex: 1.5; font-size: 17px; }
+    .osk-key.key-space { background: #3a3a3c; flex: 8.5; font-size: 14px; color: rgba(255,255,255,0.3); }
+    .osk-key.key-clear { background: #8b0000; flex: 1.5; font-size: 13px; font-weight: 700; }
 
     /* ── STAFF PANEL ── */
     .staff-overlay {
@@ -598,7 +601,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.2.0</p>
+<p class="version-badge">v1.2.1</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -783,7 +786,7 @@ function showScreen(id) {
   if (id === 'attract') {
     credits = 0; setLang('en'); updateAttractText();
     hideOsk();
-    setCaps(true);
+    resetOskState();
     const sp = document.getElementById('split-panel');
     if (sp) sp.classList.remove('open');
     const pr = document.getElementById('playing-right');
@@ -1347,47 +1350,62 @@ function renderBlacklist() {
 
 // ── ON-SCREEN KEYBOARD ──
 let oskActiveInput = null;
-let oskCaps = true;
+let oskCaps = false;
+let oskShift = true; // phone-style: first letter capitalized
+
+function oskUpper() { return oskCaps || oskShift; }
 
 function buildOsk() {
-  const r1 = document.getElementById('osk-r1');
-  const r2 = document.getElementById('osk-r2');
-  const r3 = document.getElementById('osk-r3');
-  const r4 = document.getElementById('osk-r4');
-  const r5 = document.getElementById('osk-r5');
-  if (!r1 || !r2 || !r3 || !r4 || !r5) return;
+  const rows = ['osk-r1','osk-r2','osk-r3','osk-r4','osk-r5'].map(id => document.getElementById(id));
+  if (rows.some(r => !r)) return;
+  const [r1, r2, r3, r4, r5] = rows;
 
-  const letter = (row, k) => row.appendChild(makeKey(k, 'osk-letter', () => oskType(oskCaps ? k : k.toLowerCase())));
-  const spacer = row => { const s = document.createElement('div'); s.className = 'osk-spacer'; row.appendChild(s); };
+  const letter = (row, k) => {
+    const btn = makeKey(k, 'osk-letter', () => {
+      oskType(oskUpper() ? k : k.toLowerCase());
+      if (oskShift) { oskShift = false; updateOskCase(); }
+    });
+    row.appendChild(btn);
+  };
+  const spacerSm = row => { const s = document.createElement('div'); s.className = 'osk-spacer-sm'; row.appendChild(s); };
 
-  // Row 1: numbers
+  // Row 1: numbers (spacers balance row width with row 2)
   r1.innerHTML = '';
+  spacerSm(r1);
   ['1','2','3','4','5','6','7','8','9','0'].forEach(k =>
     r1.appendChild(makeKey(k, '', () => oskType(k))));
+  spacerSm(r1);
 
   // Row 2: QWERTYUIOP + delete
   r2.innerHTML = '';
   ['Q','W','E','R','T','Y','U','I','O','P'].forEach(k => letter(r2, k));
   r2.appendChild(makeKey('\u232B', 'key-del', () => oskDel()));
 
-  // Row 3: caps + ASDFGHJKL
+  // Row 3: caps + ASDFGHJKL + enter
   r3.innerHTML = '';
-  const capsBtn = makeKey('\u21E7', 'key-caps' + (oskCaps ? ' caps-on' : ''), () => toggleCaps());
+  const capsBtn = makeKey('\u21EA', 'key-caps', () => { oskCaps = !oskCaps; oskShift = false; updateOskCase(); });
   capsBtn.id = 'osk-caps';
   r3.appendChild(capsBtn);
   ['A','S','D','F','G','H','J','K','L'].forEach(k => letter(r3, k));
+  r3.appendChild(makeKey('\u23CE', 'key-enter', () => hideOsk()));
 
-  // Row 4: ZXCVBNM centered
+  // Row 4: shift + ZXCVBNM + shift
   r4.innerHTML = '';
-  spacer(r4);
+  const shiftL = makeKey('\u21E7', 'key-shift', () => { oskShift = !oskShift; updateOskCase(); });
+  shiftL.id = 'osk-shift-l';
+  r4.appendChild(shiftL);
   ['Z','X','C','V','B','N','M'].forEach(k => letter(r4, k));
-  spacer(r4);
+  const shiftR = makeKey('\u21E7', 'key-shift', () => { oskShift = !oskShift; updateOskCase(); });
+  shiftR.id = 'osk-shift-r';
+  r4.appendChild(shiftR);
 
   // Row 5: hide + space + clear
   r5.innerHTML = '';
   r5.appendChild(makeKey('\u2328\u25BE', 'key-hide', () => hideOsk()));
   r5.appendChild(makeKey('space', 'key-space', () => oskType(' ')));
   r5.appendChild(makeKey('clear', 'key-clear', () => oskClear()));
+
+  updateOskCase();
 
   // Tapping a search input brings the keyboard back after hide
   ['search-input', 'split-input'].forEach(id => {
@@ -1397,15 +1415,23 @@ function buildOsk() {
   });
 }
 
-function toggleCaps() { setCaps(!oskCaps); }
-
-function setCaps(v) {
-  oskCaps = v;
-  const capsBtn = document.getElementById('osk-caps');
-  if (capsBtn) capsBtn.classList.toggle('caps-on', oskCaps);
+function updateOskCase() {
+  const upper = oskUpper();
   document.querySelectorAll('.osk-letter').forEach(btn => {
-    btn.textContent = oskCaps ? btn.textContent.toUpperCase() : btn.textContent.toLowerCase();
+    btn.textContent = upper ? btn.textContent.toUpperCase() : btn.textContent.toLowerCase();
   });
+  const caps = document.getElementById('osk-caps');
+  if (caps) caps.classList.toggle('caps-on', oskCaps);
+  ['osk-shift-l', 'osk-shift-r'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('shift-on', oskShift);
+  });
+}
+
+function resetOskState() {
+  oskCaps = false;
+  oskShift = true;
+  updateOskCase();
 }
 
 function makeKey(label, cls, fn) {
