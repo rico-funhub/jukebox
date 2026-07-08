@@ -644,8 +644,8 @@
 <div id="screen-oos" class="screen">
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="oos-logo" alt="FUNHUB" />
   <div class="oos-icon">🎵</div>
-  <p class="oos-title">Out of Service</p>
-  <p class="oos-msg">The jukebox is taking a short break and will be back automatically.</p>
+  <p class="oos-title" id="oos-title">Out of Service</p>
+  <p class="oos-msg" id="oos-msg">The jukebox is taking a short break and will be back automatically.</p>
   <p class="oos-staff">⚠️ Please ask a staff member for help</p>
   <p class="oos-sub" id="oos-sub"></p>
   <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:0.5rem;">
@@ -669,7 +669,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.2.1</p>
+<p class="version-badge">v1.2.2</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -714,6 +714,10 @@
     <div class="settings-row">
       <div class="settings-label">Reset playback<small>Stops current song, starts fresh with September</small></div>
       <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Take jukebox offline<small>Shows guests a "closed" screen until you reopen it (staff PIN)</small></div>
+      <button class="s-btn" onclick="confirmTakeOffline()" style="border-color:rgba(255,112,112,0.4);color:#ff7070;">⏸ Take offline</button>
     </div>
     <div class="settings-row">
       <div class="settings-label">Free mode<small>No card needed — guests pick songs for free</small></div>
@@ -1178,7 +1182,22 @@ async function api(url, opts = {}) {
 //   1. auto — a background probe after the cooldown confirms the API is back
 //   2. staff PIN — the unlock button on the OOS screen
 let outOfService = localStorage.getItem('jukebox_oos') === '1';
+// Distinguishes a deliberate staff shutdown from an automatic rate-limit lockout.
+// Staff-closed must NOT auto-recover — only staff can reopen it.
+let closedByStaff = localStorage.getItem('jukebox_closed') === '1';
 let oosProbeTimer = null;
+
+function setOosMessage() {
+  const title = document.getElementById('oos-title');
+  const msg = document.getElementById('oos-msg');
+  if (closedByStaff) {
+    if (title) title.textContent = 'Temporarily Unavailable';
+    if (msg) msg.textContent = 'The jukebox is currently closed. Please check back later.';
+  } else {
+    if (title) title.textContent = 'Out of Service';
+    if (msg) msg.textContent = 'The jukebox is taking a short break and will be back automatically.';
+  }
+}
 
 function enterOutOfService() {
   if (outOfService) return;
@@ -1187,13 +1206,30 @@ function enterOutOfService() {
   logError('E-API-429', 'kiosk out of service');
   const sw = document.getElementById('oos-switch-btn');
   if (sw) { sw.textContent = 'Switch to Key ' + (activeKey === 'A' ? 'B' : 'A'); sw.style.display = otherKey() ? 'inline-block' : 'none'; }
+  setOosMessage();
   showScreen('oos');
   scheduleOosProbe();
 }
 
+// Staff-triggered shutdown. Reuses the OOS screen but does NOT probe/auto-recover.
+function enterClosed() {
+  outOfService = true;
+  closedByStaff = true;
+  localStorage.setItem('jukebox_oos', '1');
+  localStorage.setItem('jukebox_closed', '1');
+  if (oosProbeTimer) { clearTimeout(oosProbeTimer); oosProbeTimer = null; }
+  const sw = document.getElementById('oos-switch-btn');
+  if (sw) sw.style.display = 'none';  // no key-failover on a deliberate close
+  setOosMessage();
+  closeSettings();
+  showScreen('oos');
+}
+
 function exitOutOfService() {
   outOfService = false;
+  closedByStaff = false;
   localStorage.removeItem('jukebox_oos');
+  localStorage.removeItem('jukebox_closed');
   rateLimitUntil = 0;
   if (oosProbeTimer) { clearTimeout(oosProbeTimer); oosProbeTimer = null; }
   // Reconnect playback and go back to the attract loop.
@@ -1204,13 +1240,15 @@ function exitOutOfService() {
 
 // Wait out the cooldown, then quietly probe the API. If it answers, we're back.
 // If it 429s again, api() re-arms the cooldown and we reschedule.
+// Never runs for a staff-closed kiosk — that only reopens via staff PIN.
 function scheduleOosProbe() {
+  if (closedByStaff) return;
   if (oosProbeTimer) clearTimeout(oosProbeTimer);
   const wait = Math.max(rateLimitUntil - Date.now(), 5000) + 2000;
   const sub = document.getElementById('oos-sub');
   if (sub) sub.textContent = '';
   oosProbeTimer = setTimeout(async () => {
-    if (!outOfService) return;
+    if (!outOfService || closedByStaff) return;
     // Bypass the cooldown gate for this one probe by calling fetch directly.
     if (!await ensureToken()) { scheduleOosProbe(); return; }
     try {
@@ -1791,6 +1829,13 @@ async function settingsResetQueue() {
   await forcePlay('spotify:track:2grjqo0Frpf2okIBiifQKs');
   setTimeout(fetchQueue, 2000);
   closeSettings();
+}
+
+// Staff: put the kiosk into a deliberate "closed" state (guest-proof, no auto-recover).
+function confirmTakeOffline() {
+  if (confirm('Take the jukebox offline? Guests will see a "closed" screen. Reopen it with Staff unlock + PIN on that screen.')) {
+    enterClosed();
+  }
 }
 
 function toggleOskSetting() {
@@ -2590,7 +2635,9 @@ function startKeepAlive() {
 async function init() {
   if (new URLSearchParams(window.location.search).get('reset') === '1') {
     localStorage.removeItem('jukebox_oos');
+    localStorage.removeItem('jukebox_closed');
     outOfService = false;
+    closedByStaff = false;
     showScreen(haveKey() ? 'auth' : 'setup');
     return;
   }
@@ -2608,7 +2655,7 @@ async function init() {
   if (await ensureToken()) {
     postAuthSetup();
     // Was the kiosk locked out before reload? Stay locked; a guest can't refresh out of it.
-    if (outOfService) { showScreen('oos'); scheduleOosProbe(); }
+    if (outOfService) { setOosMessage(); showScreen('oos'); scheduleOosProbe(); }
     else showScreen('attract');
     // Restore happens after SDK is ready — see initPlayer() ready callback
   } else {
