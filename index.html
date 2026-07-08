@@ -100,7 +100,7 @@
       width: 50%; height: 100vh; display: none; flex-direction: column;
       position: relative; z-index: 1; border-left: 1px solid rgba(255,255,255,0.07);
     }
-    .split-panel.open { display: flex; }
+    .split-panel.open { display: flex; flex-direction: column; justify-content: space-between; }
     .split-top { padding: 1.75rem 2rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
     .split-input {
       width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
@@ -109,7 +109,7 @@
     }
     .split-input:focus { border-color: #1DB954; }
     .split-input::placeholder { color: rgba(255,255,255,0.2); }
-    .split-results { overflow-y: auto; list-style: none; padding: 0.5rem 0; max-height: 30vh; }
+    .split-results { overflow-y: auto; list-style: none; padding: 0.5rem 0; flex: 1; }
     .split-result { display: flex; align-items: center; gap: 14px; padding: 13px 2rem; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .split-result:last-child { border-bottom: none; }
     .split-result:hover, .split-result:active { background: rgba(255,255,255,0.05); }
@@ -123,7 +123,7 @@
     .split-status { font-size: 15px; color: rgba(255,255,255,0.2); text-align: center; padding: 2rem; }
 
     /* ── SEARCH SCREEN ── */
-    #screen-search { flex-direction: column; background: #080808; }
+    #screen-search { flex-direction: column; background: #080808; justify-content: space-between; }
     .search-top {
       width: 100%; padding: 1.75rem 2.5rem; border-bottom: 1px solid rgba(255,255,255,0.07);
       display: flex; align-items: center; gap: 1.5rem; flex-shrink: 0;
@@ -138,7 +138,7 @@
     .search-input::placeholder { color: rgba(255,255,255,0.2); }
     .search-cancel { background: none; color: rgba(255,255,255,0.4); border: none; font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit; padding: 10px; white-space: nowrap; flex-shrink: 0; }
     .search-cancel:hover { color: #fff; }
-    .search-results-wrap { width: 100%; overflow-y: auto; padding: 0.75rem 2.5rem 1rem; max-height: 35vh; }
+    .search-results-wrap { width: 100%; overflow-y: auto; padding: 0.75rem 2.5rem 1rem; flex: 1; }
     .search-results { list-style: none; }
     .search-result { display: flex; align-items: center; gap: 18px; padding: 16px 12px; border-radius: 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .search-result:last-child { border-bottom: none; }
@@ -518,7 +518,7 @@
 
 <!-- SEARCH -->
 <div id="screen-search" class="screen">
-  <div id="search-bg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(60px) brightness(0.15);transform:scale(1.15);z-index:0;"></div>
+  <div id="search-bg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(60px) brightness(0.15);transform:scale(1.15);z-index:0;transition:background-image 1s ease;"></div>
   <div class="search-top" style="position:relative;z-index:1;">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="search-logo" alt="FUNHUB" />
     <input id="search-input" class="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="liveSearch(this.value)" />
@@ -528,7 +528,7 @@
     <p id="search-status" class="search-status"></p>
     <ul id="search-results" class="search-results"></ul>
   </div>
-  <div class="osk-wrap" style="position:relative;z-index:1;"><div id="osk-main" class="osk"></div></div>
+  <div class="osk-wrap" style="position:relative;z-index:1;flex-shrink:0;"><div id="osk-main" class="osk"></div></div>
 </div>
 
 
