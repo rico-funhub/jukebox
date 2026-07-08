@@ -482,28 +482,24 @@ async function fetchQueue() {
   if (!await ensureToken()) return;
   try {
     const r = await api('https://api.spotify.com/v1/me/player/queue');
-    if (!r || !r.ok) return;
+    if (!r || !r.ok) { document.getElementById('queue-list').innerHTML = '<li class="queue-empty">Queue is empty</li>'; return; }
     const d = await r.json();
     const cur = d.currently_playing;
     const seen = new Set();
     if (cur?.id) seen.add(cur.id);
     if (cur?.uri) seen.add(cur.uri);
-    // Also exclude the last item in queue if it matches currently playing (Spotify duplicate bug)
-    const raw = d.queue || [];
-    const items = raw.filter(t => {
+    const items = (d.queue || []).filter(t => {
       if (!t.id) return false;
       if (seen.has(t.id) || seen.has(t.uri)) return false;
-      if (playedUris.has(t.uri)) return false;
-      seen.add(t.id);
-      seen.add(t.uri);
+      seen.add(t.id); seen.add(t.uri);
       return true;
     }).slice(0, 8);
     const list = document.getElementById('queue-list');
     list.innerHTML = items.length ? items.map((t,i) => {
       const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
-      return `<li class="queue-item"><span class="queue-num">${i+1}</span><div class="queue-thumb">${a?`<img src="${a}" alt="">`:''}  </div><div class="queue-info"><div class="queue-track">${t.name}</div><div class="queue-artist">${t.artists.map(a=>a.name).join(', ')}</div></div></li>`;
+      return `<li class="queue-item"><span class="queue-num">${i+1}</span><div class="queue-thumb">${a?`<img src="${a}" alt="">`:''}</div><div class="queue-info"><div class="queue-track">${t.name}</div><div class="queue-artist">${t.artists.map(a=>a.name).join(', ')}</div></div></li>`;
     }).join('') : '<li class="queue-empty">Queue is empty</li>';
-  } catch(e) {}
+  } catch(e) { document.getElementById('queue-list').innerHTML = '<li class="queue-empty">Queue is empty</li>'; }
 }
 
 // ── QUEUE TRACK ──
@@ -527,7 +523,8 @@ async function queueTrack(uri, name, artist, art) {
     closeSplit();
     if (currentScreen === 'search') closeSearch();
     showScreen('playing');
-    setTimeout(fetchQueue, 800);
+    setTimeout(fetchQueue, 1500);
+    setTimeout(fetchQueue, 3000);
   } catch(e) {
     const el = document.getElementById('search-status') || document.getElementById('split-status');
     if (el) el.textContent = 'Could not add song. Make sure Spotify is open.';
@@ -810,6 +807,10 @@ async function init() {
 }
 
 function startKeepAlive() {
+  // Poll queue regularly while playing
+  setInterval(() => {
+    if (isPlaying) fetchQueue();
+  }, 8000);
   setInterval(async () => {
     if (!accessToken) return;
     try { await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + accessToken } }); } catch(e) {}
