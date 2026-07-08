@@ -252,8 +252,8 @@
       <button class="settings-btn danger" onclick="settingsClearCredits()">Clear</button>
     </div>
     <div class="settings-row">
-      <div class="settings-label">Queue<small>Skip remaining songs</small></div>
-      <button class="settings-btn danger" onclick="settingsClearQueue()">Clear</button>
+      <div class="settings-label">Queue<small>Plays September &amp; clears queue</small></div>
+      <button class="settings-btn" onclick="settingsClearQueue()">Reset with September 🎵</button>
     </div>
     <div class="settings-row">
       <div class="settings-label">Session<small id="settings-session-info">Started this session</small></div>
@@ -482,10 +482,8 @@ async function fetchQueue() {
       seen.add(t.uri);
       return true;
     }).slice(0, 8);
-    // Hide last item (Spotify autoplay ghost)
-    const display = items.length > 1 ? items.slice(0, -1) : items;
     const list = document.getElementById('queue-list');
-    list.innerHTML = display.length ? display.map((t,i) => {
+    list.innerHTML = items.length ? items.map((t,i) => {
       const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
       return `<li class="queue-item"><span class="queue-num">${i+1}</span><div class="queue-thumb">${a?`<img src="${a}" alt="">`:''}  </div><div class="queue-info"><div class="queue-track">${t.name}</div><div class="queue-artist">${t.artists.map(a=>a.name).join(', ')}</div></div></li>`;
     }).join('') : '<li class="queue-empty">Queue is empty</li>';
@@ -660,16 +658,15 @@ function settingsClearCredits() {
 async function settingsClearQueue() {
   if (!await ensureToken()) return;
   try {
-    // Skip through remaining queue
-    for (let i = 0; i < 10; i++) {
-      const r = await api('https://api.spotify.com/v1/me/player/queue');
-      if (!r || !r.ok) break;
-      const d = await r.json();
-      if (!d.queue || d.queue.length === 0) break;
-      await api('https://api.spotify.com/v1/me/player/next', { method: 'POST' });
-      await new Promise(r => setTimeout(r, 300));
-    }
-    fetchQueue();
+    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+    const playUrl = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
+    await api(playUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris: ['spotify:track:2grjqo0Frpf2okIBiifQKs'] })
+    });
+    closeSettings();
+    setTimeout(fetchQueue, 800);
   } catch(e) {}
 }
 
