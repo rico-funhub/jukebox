@@ -669,7 +669,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.1.1</p>
+<p class="version-badge">v1.1.2</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1170,6 +1170,12 @@ async function api(url, opts = {}) {
     rateLimitUntil = Date.now() + (retry + 1) * 1000;
     enterOutOfService();
   }
+  // 403 while on the fallback key almost always means the backup app has no
+  // Premium and Spotify has blocked the whole API. Don't strand the kiosk.
+  if (r.status === 403 && fallbackActive()) {
+    revertDeadFallback();
+    return r;
+  }
   if (!r.ok) logError(apiErrorCode(r.status), url.split('?')[0]);
   return r;
 }
@@ -1504,11 +1510,18 @@ function showQueueEmpty() {
 // ── QUEUE TRACK ──
 async function queueTrack(uri, name, artist, art) {
   if (!await ensureToken()) return;
-  // External mode with no chosen device: don't touch the credit, tell the guest.
+  // External mode with no chosen device: if the in-app SDK player is available
+  // (main key + Premium), quietly fall back to it rather than refusing. Only
+  // block if there's genuinely no way to play (no device AND no SDK).
   if (playbackMode === 'external' && !extDeviceId) {
-    const el = document.getElementById('search-status') || document.getElementById('split-status');
-    if (el) el.textContent = T[lang].noDevice;
-    return;
+    if (deviceId) {
+      playbackMode = 'inapp';
+      localStorage.setItem('jukebox_playback', 'inapp');
+    } else {
+      const el = document.getElementById('search-status') || document.getElementById('split-status');
+      if (el) el.textContent = T[lang].noDevice;
+      return;
+    }
   }
   try {
     // Use the playback state we already track from the SDK, instead of an extra
@@ -1906,20 +1919,42 @@ function saveFallbackKey() {
   renderKeySettings();
 }
 
-// Move between main and fallback keys. Fallback forces external playback (its
-// account has no Premium, so no in-app Web Player). Both need reconnect.
+// Move between main and fallback keys. Both need reconnect (OAuth is bound to
+// the Client ID). NOTE (2026): Spotify requires Premium for ANY Web API access,
+// so a non-Premium fallback app is blocked entirely — see revertDeadFallback().
 function switchKeySlot(slot) {
   if (slot === 'fallback' && !fallbackClientId) { alert('No fallback key set. Add one first.'); return; }
   activeKeySlot = slot;
   localStorage.setItem('jukebox_key_slot', slot);
   if (slot === 'fallback') {
-    // Force external mode — an unprivileged app can't run the in-app SDK player.
+    // Fallback assumes no in-app player — default to external.
     playbackMode = 'external';
     localStorage.setItem('jukebox_playback', 'external');
+  } else {
+    // Back to main: restore the in-app player so we're not stranded on external
+    // with no device chosen (which silently blocks queueing).
+    playbackMode = 'inapp';
+    localStorage.setItem('jukebox_playback', 'inapp');
   }
   const label = slot === 'fallback' ? 'FALLBACK (backup) key' : 'MAIN key';
   if (confirm('Switching to the ' + label + '. The jukebox must reconnect to Spotify now. Reconnect?')) reconnectForKeyChange();
   else renderKeySettings();
+}
+
+// If the fallback key is blocked (no Premium -> Spotify 403s the whole API),
+// don't strand the kiosk: revert to the main key + in-app player automatically.
+let revertingFallback = false;
+function revertDeadFallback() {
+  if (revertingFallback) return;
+  revertingFallback = true;
+  logError('E-API-403', 'fallback key blocked (no Premium) — reverting to main');
+  activeKeySlot = 'main';
+  playbackMode = 'inapp';
+  localStorage.setItem('jukebox_key_slot', 'main');
+  localStorage.setItem('jukebox_playback', 'inapp');
+  localStorage.removeItem('jukebox_oos');
+  alert('The backup app has no Spotify Premium, so Spotify blocks it. Reverting to the main app key and reconnecting.');
+  reconnectForKeyChange();
 }
 
 function renderKeySettings() {
