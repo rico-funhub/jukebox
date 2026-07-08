@@ -637,7 +637,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.0.10</p>
+<p class="version-badge">v1.0.11</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -686,6 +686,17 @@
     <div class="settings-row">
       <div class="settings-label">Free mode<small>No card needed — guests pick songs for free</small></div>
       <button class="s-btn" id="free-toggle-btn" onclick="toggleFreeMode()">Off</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Playback<small>In-app player, or send to another Spotify device</small></div>
+      <button class="s-btn" id="playback-mode-btn" onclick="togglePlaybackMode()">In-app player</button>
+    </div>
+    <div class="settings-row" id="device-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div class="settings-label">Target device<small id="device-current"></small></div>
+        <button class="s-btn" onclick="pickDevice()">Choose device</button>
+      </div>
+      <div id="device-list" style="width:100%;"></div>
     </div>
     <div class="settings-row">
       <div class="settings-label">On-screen keyboard<small>Built-in keyboard for touchscreens</small></div>
@@ -760,6 +771,12 @@ const LOGO = 'https://images.squarespace-cdn.com/content/v1/674abd042502920e4f68
 let accessToken = null, tokenExpiry = 0, refreshToken = null;
 let deviceId = null, spotifyPlayer = null;
 let isPlaying = false, currentScreen = 'auth', sdkReady = false;
+// Playback target: 'inapp' = this page's SDK device plays audio;
+// 'external' = send commands to a staff-chosen Spotify Connect device.
+let playbackMode = localStorage.getItem('jukebox_playback') || 'inapp';
+let extDeviceId = localStorage.getItem('jukebox_ext_device_id') || '';
+let extDeviceName = localStorage.getItem('jukebox_ext_device_name') || '';
+let extPollTimer = null;
 let lastTrackUri = null;
 let credits = 0;
 let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
@@ -824,21 +841,21 @@ const T = {
     tap: 'TAP YOUR CARD', tapPlay: 'TAP TO PLAY A SONG', sub: 'to pick a song!',
     nowPlaying: 'Now playing', upNext: 'Up next',
     tapAdd: 'TAP YOUR CARD TO ADD A SONG!',
-    searchPh: 'What song do you want?', searching: 'Searching...', noResults: 'No results found.', back: 'Back', added: 'Added! Pick another song', searchError: 'Search unavailable. Please tell a staff member.',
+    searchPh: 'What song do you want?', searching: 'Searching...', noResults: 'No results found.', back: 'Back', added: 'Added! Pick another song', searchError: 'Search unavailable. Please tell a staff member.', noDevice: 'Player not ready — please tell a staff member.',
     splitPh: 'Search for a song...', queueEmpty: 'Tap your card to add\nthe next song!'
   },
   fr: {
     tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TAPPEZ POUR JOUER UNE CHANSON', sub: 'pour choisir une chanson!',
     nowPlaying: 'En cours', upNext: 'À venir',
     tapAdd: 'TAPPEZ VOTRE CARTE POUR AJOUTER UNE CHANSON!',
-    searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche en cours...', noResults: 'Aucun résultat.', back: 'Retour', added: 'Ajoutée! Choisis une autre chanson', searchError: 'Recherche indisponible. Avertis un employé.',
+    searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche en cours...', noResults: 'Aucun résultat.', back: 'Retour', added: 'Ajoutée! Choisis une autre chanson', searchError: 'Recherche indisponible. Avertis un employé.', noDevice: 'Lecteur non prêt — avertis un employé.',
     splitPh: 'Rechercher une chanson...', queueEmpty: 'Tappez votre carte pour ajouter\nla prochaine chanson!'
   },
   es: {
     tap: 'ACERQUE SU TARJETA', tapPlay: 'TOCA PARA PONER UNA CANCIÓN', sub: '¡para elegir una canción!',
     nowPlaying: 'Reproduciendo', upNext: 'A continuación',
     tapAdd: '¡ACERQUE SU TARJETA PARA AGREGAR UNA CANCIÓN!',
-    searchPh: '¿Qué canción quieres escuchar?', searching: 'Buscando...', noResults: 'Sin resultados.', back: 'Atrás', added: '¡Agregada! Elige otra canción', searchError: 'Búsqueda no disponible. Avisa a un empleado.',
+    searchPh: '¿Qué canción quieres escuchar?', searching: 'Buscando...', noResults: 'Sin resultados.', back: 'Atrás', added: '¡Agregada! Elige otra canción', searchError: 'Búsqueda no disponible. Avisa a un empleado.', noDevice: 'Reproductor no listo — avisa a un empleado.',
     splitPh: 'Buscar una canción...', queueEmpty: '¡Acerque su tarjeta para agregar\nla siguiente canción!'
   }
 };
@@ -1083,6 +1100,69 @@ function scheduleOosProbe() {
   }, wait);
 }
 
+// ── PLAYBACK TARGET ──
+// One source of truth for which device playback commands go to.
+// In-app: the SDK device on this page. External: the staff-chosen Connect device.
+function targetDevice() {
+  if (playbackMode === 'external') return extDeviceId || '';
+  return deviceId || sessionStorage.getItem('spotify_device_id') || '';
+}
+
+// Fetch the list of Spotify Connect devices this account can see.
+async function fetchDevices() {
+  if (!await ensureToken()) return [];
+  try {
+    const r = await api('https://api.spotify.com/v1/me/player/devices');
+    if (!r || !r.ok) return [];
+    const d = await r.json();
+    return d.devices || [];
+  } catch(e) { return []; }
+}
+
+// External mode has no SDK events, so poll me/player to keep now-playing live.
+function startExternalPoll() {
+  stopExternalPoll();
+  if (playbackMode !== 'external') return;
+  extPollTimer = setInterval(async () => {
+    if (outOfService || playbackMode !== 'external') return;
+    if (!await ensureToken()) return;
+    try {
+      const r = await api('https://api.spotify.com/v1/me/player');
+      if (!r || r.status !== 200) return;
+      const d = await r.json();
+      applyExternalState(d);
+    } catch(e) {}
+  }, 5000);
+}
+
+function stopExternalPoll() {
+  if (extPollTimer) { clearInterval(extPollTimer); extPollTimer = null; }
+}
+
+// Mirror a me/player response onto the now-playing UI (external mode's onState).
+function applyExternalState(d) {
+  if (!d || !d.item) {
+    isPlaying = false;
+    if (currentScreen === 'playing') showScreen('attract');
+    return;
+  }
+  isPlaying = d.is_playing || false;
+  const t = d.item;
+  if (t.uri === lastTrackUri) return;
+  lastTrackUri = t.uri;
+  const art = t.album?.images?.[0]?.url || null;
+  document.getElementById('playing-track').textContent = t.name;
+  document.getElementById('playing-artist').textContent = t.artists.map(a => a.name).join(', ');
+  const img = document.getElementById('art-img');
+  const bg = document.getElementById('playing-bg');
+  if (art) { img.src = art; img.style.display = 'block'; bg.style.backgroundImage = `url(${art})`; }
+  else { img.style.display = 'none'; bg.style.backgroundImage = 'none'; }
+  const disc = document.getElementById('disc');
+  if (disc) disc.classList.toggle('spinning', isPlaying);
+  if (isPlaying && currentScreen !== 'search') showScreen('playing');
+  fetchQueue();
+}
+
 // ── COIN SOUND ──
 function coinSound() {
   try {
@@ -1113,6 +1193,8 @@ async function initPlayer() {
     deviceId = device_id;
     sessionStorage.setItem('spotify_device_id', device_id);
     document.getElementById('audio-badge').style.display = 'block';
+    // In external mode the SDK device exists but must NOT grab playback.
+    if (playbackMode === 'external') { sdkReady = true; return; }
     api('https://api.spotify.com/v1/me/player', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_ids: [device_id], play: false }) });
 
     // Wait for SDK to settle, then check live state and restore
@@ -1153,6 +1235,7 @@ async function initPlayer() {
 }
 
 function onState(state) {
+  if (playbackMode === 'external') return; // external mode drives UI via poll, not SDK events
   if (!state || !state.track_window?.current_track) {
     isPlaying = false;
     if (sdkReady && currentScreen === 'playing') showScreen('attract');
@@ -1230,8 +1313,14 @@ function showQueueEmpty() {
 // ── QUEUE TRACK ──
 async function queueTrack(uri, name, artist, art) {
   if (!await ensureToken()) return;
+  // External mode with no chosen device: don't touch the credit, tell the guest.
+  if (playbackMode === 'external' && !extDeviceId) {
+    const el = document.getElementById('search-status') || document.getElementById('split-status');
+    if (el) el.textContent = T[lang].noDevice;
+    return;
+  }
   try {
-    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+    const did = targetDevice();
     // Use the playback state we already track from the SDK, instead of an extra
     // me/player call every song. Halves the requests per song request.
     const playing = isPlaying;
@@ -1462,6 +1551,7 @@ function openSettings() {
   const ckd = document.getElementById('coin-key-display'); if (ckd) ckd.textContent = coinKeyLabel;
   const otb = document.getElementById('osk-toggle-btn'); if (otb) otb.textContent = oskEnabled ? 'On' : 'Off';
   const ftb = document.getElementById('free-toggle-btn'); if (ftb) ftb.textContent = freeMode ? 'On' : 'Off';
+  renderPlaybackSettings();
   document.getElementById('cpt-val').textContent = creditsPerTap;
   document.getElementById('cps-val').textContent = creditsPerSong;
   const rev = getRevenueReport();
@@ -1504,7 +1594,7 @@ function settingsClearCredits() {
 
 async function settingsResetQueue() {
   if (!await ensureToken()) return;
-  const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+  const did = targetDevice();
   const url = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
   await api(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: ['spotify:track:2grjqo0Frpf2okIBiifQKs'] }) });
   closeSettings();
@@ -1533,6 +1623,74 @@ function toggleFreeMode() {
   updateAttractText();
   updateCredits();
 }
+
+// ── PLAYBACK MODE ──
+function applyPlaybackMode() {
+  if (playbackMode === 'external') {
+    // Hand playback off the in-app device; drive UI by polling instead of SDK.
+    if (spotifyPlayer) { try { spotifyPlayer.pause(); } catch(e) {} }
+    startExternalPoll();
+  } else {
+    stopExternalPoll();
+    // Re-establish the SDK device as the player.
+    if (spotifyPlayer) { try { spotifyPlayer.disconnect(); } catch(e) {} }
+    setTimeout(initPlayer, 500);
+  }
+}
+
+function setPlaybackMode(mode) {
+  playbackMode = mode;
+  localStorage.setItem('jukebox_playback', mode);
+  renderPlaybackSettings();
+  applyPlaybackMode();
+}
+
+function renderPlaybackSettings() {
+  const modeBtn = document.getElementById('playback-mode-btn');
+  if (modeBtn) modeBtn.textContent = playbackMode === 'external' ? 'External device' : 'In-app player';
+  const row = document.getElementById('device-row');
+  if (row) row.style.display = playbackMode === 'external' ? 'flex' : 'none';
+  const name = document.getElementById('device-current');
+  if (name) {
+    if (playbackMode !== 'external') name.textContent = '';
+    else if (!extDeviceId) name.innerHTML = '<span style="color:#ff7070">⚠️ No device chosen</span>';
+    else name.textContent = extDeviceName || extDeviceId;
+  }
+}
+
+function togglePlaybackMode() {
+  setPlaybackMode(playbackMode === 'external' ? 'inapp' : 'external');
+}
+
+async function pickDevice() {
+  const list = document.getElementById('device-list');
+  if (!list) return;
+  list.innerHTML = '<p style="font-size:13px;color:rgba(255,255,255,0.3);padding:8px 0;">Searching for devices…</p>';
+  const devices = await fetchDevices();
+  // Don't offer this kiosk's own SDK device as an "external" target.
+  const others = devices.filter(dv => dv.id !== deviceId && dv.name !== 'FUNHUB Jukebox');
+  if (!others.length) {
+    list.innerHTML = '<p style="font-size:13px;color:#ff7070;padding:8px 0;">⚠️ No other Spotify devices found. Open Spotify on the device you want to use, start playing once, then try again.</p>';
+    return;
+  }
+  list.innerHTML = others.map(dv =>
+    `<div onclick="chooseDevice('${dv.id}','${(dv.name||'').replace(/'/g,"\\'")}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;margin:6px 0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;cursor:pointer;">
+      <span style="font-size:15px;color:#fff;">${dv.name || 'Unknown'} <small style="color:rgba(255,255,255,0.35);">${dv.type||''}</small></span>
+      ${dv.id === extDeviceId ? '<span style="color:#1DB954;font-size:13px;font-weight:700;">✓ current</span>' : ''}
+    </div>`
+  ).join('');
+}
+
+function chooseDevice(id, name) {
+  extDeviceId = id;
+  extDeviceName = name;
+  localStorage.setItem('jukebox_ext_device_id', id);
+  localStorage.setItem('jukebox_ext_device_name', name);
+  renderPlaybackSettings();
+  const list = document.getElementById('device-list');
+  if (list) list.innerHTML = '<p style="font-size:13px;color:#1DB954;padding:8px 0;">✓ ' + name + ' selected</p>';
+}
+
 
 function startCoinMapping() {
   listeningForCoinKey = true;
@@ -2003,7 +2161,7 @@ async function staffDoSearch(q) {
 async function staffQueue(uri, name, artist, art) {
   if (!await ensureToken()) return;
   try {
-    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+    const did = targetDevice();
     const stateR = await api('https://api.spotify.com/v1/me/player');
     const playing = stateR?.status === 200 ? (await stateR.json())?.is_playing : false;
     if (playing) {
@@ -2021,7 +2179,7 @@ async function staffQueue(uri, name, artist, art) {
 async function staffPlayFromQueue(uri, name) {
   if (!await ensureToken()) return;
   try {
-    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+    const did = targetDevice();
     const playUrl = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
     await api(playUrl, {
       method: 'PUT',
@@ -2108,6 +2266,7 @@ function postAuthSetup() {
   startGamepadCoinPoll();
   applyOskMode();
   loadAttractArts();
+  if (playbackMode === 'external') startExternalPoll();
 }
 
 function startKeepAlive() {
