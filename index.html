@@ -466,12 +466,13 @@
 
 <!-- SEARCH -->
 <div id="screen-search" class="screen">
-  <div class="search-top">
+  <div id="search-bg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(60px) brightness(0.15);transform:scale(1.15);z-index:0;"></div>
+  <div class="search-top" style="position:relative;z-index:1;">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="search-logo" alt="FUNHUB" />
     <input id="search-input" class="search-input" type="text" autocomplete="off" oninput="liveSearch(this.value)" />
     <button class="search-cancel" id="search-cancel" onclick="closeSearch()">Back</button>
   </div>
-  <div class="search-results-wrap">
+  <div class="search-results-wrap" style="position:relative;z-index:1;">
     <p id="search-status" class="search-status"></p>
     <ul id="search-results" class="search-results"></ul>
   </div>
@@ -671,11 +672,11 @@ const T = {
     splitPh: 'Search for a song...', queueEmpty: 'Tap your card to add\nthe next song!'
   },
   fr: {
-    tap: 'PASSEZ VOTRE CARTE', tapPlay: 'PASSEZ POUR JOUER!', sub: 'pour choisir une chanson!',
+    tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TAPPEZ POUR JOUER!', sub: 'pour choisir une chanson!',
     nowPlaying: 'En cours', upNext: 'À venir',
-    tapAdd: 'PASSEZ VOTRE CARTE POUR AJOUTER UNE CHANSON!',
+    tapAdd: 'TAPPEZ VOTRE CARTE POUR AJOUTER UNE CHANSON!',
     searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche en cours...', noResults: 'Aucun résultat.', back: 'Retour',
-    splitPh: 'Rechercher une chanson...', queueEmpty: 'Passez votre carte pour ajouter\nla prochaine chanson!'
+    splitPh: 'Rechercher une chanson...', queueEmpty: 'Tappez votre carte pour ajouter\nla prochaine chanson!'
   },
   es: {
     tap: 'PASA TU TARJETA', tapPlay: '¡PASA PARA PEDIR!', sub: '¡para elegir una canción!',
@@ -994,9 +995,18 @@ async function queueTrack(uri, name, artist, art) {
 
 // ── FULL SEARCH ──
 function openSearch() {
-  // Fly out attract disc
   const ad = document.getElementById('attract-disc');
   if (ad) { ad.classList.add('fly-out'); setTimeout(() => ad.classList.remove('fly-out'), 500); }
+  // Set search bg from current attract bg or playing bg
+  const attractBg = document.getElementById('attract-bg');
+  const playingBg = document.getElementById('playing-bg');
+  const searchBg = document.getElementById('search-bg');
+  if (searchBg) {
+    const src = isPlaying
+      ? (playingBg?.style.backgroundImage || '')
+      : (attractBg?.style.backgroundImage || '');
+    searchBg.style.backgroundImage = src;
+  }
   showScreen('search');
   const t = T[lang];
   const si = document.getElementById('search-input');
