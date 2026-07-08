@@ -542,6 +542,25 @@ function onStateChange(state) {
 
   isPlaying = !state.paused;
 
+  // Detect autoplay — if a new track started that we didn't queue, stop it
+  const uri = track.uri;
+  if (!state.paused && uri !== lastTrackUri) {
+    lastTrackUri = uri;
+    if (!queuedUris.has(uri)) {
+      // This is an autoplay track — pause and go to attract
+      if (spotifyPlayer) spotifyPlayer.pause();
+      else fetch('https://api.spotify.com/v1/me/player/pause', {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      showScreen('attract');
+      isPlaying = false;
+      return;
+    }
+    // It's a queued track — remove it so it won't match again
+    queuedUris.delete(uri);
+  }
+
   const art = track.album?.images?.[0]?.url || null;
   document.getElementById('playing-track').textContent = track.name;
   document.getElementById('playing-artist').textContent = track.artists.map(a => a.name).join(', ');
@@ -681,6 +700,9 @@ async function queueTrack(uri, name, artist, art) {
       ? `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}&device_id=${did}`
       : `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}`;
     await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } });
+
+    // Track this URI so we know it was user-requested
+    queuedUris.add(uri);
 
     // If nothing is playing, start playback then skip to the queued song
     try {
