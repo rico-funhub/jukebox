@@ -575,7 +575,7 @@ function showScreen(id) {
   const badge = document.getElementById('credits-badge');
   if (badge) badge.style.display = (credits > 0 && (id === 'attract' || id === 'playing')) ? 'flex' : 'none';
   updateCreditsDisplay();
-  if (id === 'attract') resetLangSession();
+  if (id === 'attract' && typeof resetLangSession === 'function') resetLangSession();
 }
 
 // ── AUTH ──
@@ -686,25 +686,7 @@ async function ensureToken() {
   return true;
 }
 
-// Proactive keep-alive — ping Spotify every 30s to keep SDK active
-setInterval(async () => {
-  if (!accessToken) return;
-  try {
-    await fetch('https://api.spotify.com/v1/me/player', {
-      headers: { Authorization: 'Bearer ' + accessToken }
-    });
-  } catch(e) {}
-}, 30000);
-
-// Reconnect SDK if it drops
-setInterval(async () => {
-  if (!deviceId && accessToken && spotifyPlayer) {
-    try {
-      await spotifyPlayer.disconnect();
-      setTimeout(initPlayer, 1000);
-    } catch(e) {}
-  }
-}, 60000);
+// keep-alives started in init()
 
 // ── COIN SOUND ──
 function playCoinSound() {
@@ -1121,10 +1103,11 @@ document.addEventListener('keydown', e => {
 });
 
 // ── RESET ──
-// Visit ?reset=1 to clear session and reconnect
 if (new URLSearchParams(window.location.search).get('reset') === '1') {
   sessionStorage.clear();
   window.history.replaceState(null, '', window.location.pathname);
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-auth').classList.add('active');
 }
 
 // ── SPOTIFY SDK ──
@@ -1181,6 +1164,15 @@ async function init() {
 
   if (await ensureToken()) {
     showScreen('attract');
+    // Start keep-alives only after we have a valid token
+    setInterval(async () => {
+      if (!accessToken) return;
+      try { await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + accessToken } }); } catch(e) {}
+    }, 30000);
+    setInterval(async () => {
+      if (!deviceId && accessToken && spotifyPlayer) {
+        try { await spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
+    }, 60000);
     // On refresh — try to resume current playback state
     try {
       const res = await fetch('https://api.spotify.com/v1/me/player', {
