@@ -236,30 +236,27 @@
     /* ── ON-SCREEN KEYBOARD ── */
     .osk-wrap {
       position: relative; z-index: 1;
-      padding: 8px 0 12px;
+      padding: 10px 0 16px;
       border-top: 1px solid rgba(255,255,255,0.07);
       background: transparent;
       flex-shrink: 0;
       display: flex;
       justify-content: center;
-      align-items: center;
     }
     .osk {
-      display: flex; flex-direction: column; gap: 10px;
+      display: flex; flex-direction: column; gap: 9px;
       align-items: center;
-      width: 100%;
-      padding: 0 12px;
+      width: 860px;
+      max-width: 98vw;
     }
     .osk-row {
       display: flex;
-      gap: 7px;
+      gap: 8px;
       justify-content: center;
-      width: 100%;
     }
     .osk-key {
-      flex: 1;
-      max-width: 9%;
-      height: 52px;
+      width: 76px;
+      height: 50px;
       border-radius: 10px;
       border: none;
       background: rgba(52,52,56,0.95);
@@ -270,8 +267,8 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
       display: flex; align-items: center; justify-content: center;
       user-select: none; -webkit-user-select: none;
-      box-shadow: 0 1px 0 2px rgba(0,0,0,0.35);
-      letter-spacing: 0;
+      box-shadow: 0 1px 0 2px rgba(0,0,0,0.4);
+      flex-shrink: 0;
     }
     .osk-key:active {
       background: rgba(80,80,84,0.95);
@@ -281,23 +278,20 @@
     .osk-key.key-del {
       background: rgba(90,90,95,0.95);
       font-size: 22px;
-      flex: 1.4;
-      max-width: 13%;
+      width: 108px;
     }
     .osk-key.key-space {
       background: rgba(52,52,56,0.95);
-      flex: 5;
-      max-width: 50%;
-      font-size: 14px;
-      color: rgba(255,255,255,0.4);
+      width: 380px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.35);
       letter-spacing: 0.05em;
     }
     .osk-key.key-clear {
       background: rgba(160,30,30,0.9);
       font-size: 13px;
       font-weight: 600;
-      flex: 1.4;
-      max-width: 13%;
+      width: 108px;
     }
 
     /* ── STAFF PANEL ── */
@@ -433,7 +427,7 @@
 
     /* ── AUDIO BADGE ── */
     .version-badge { position: fixed; top: 1.25rem; right: 1.5rem; font-size: 11px; color: rgba(255,255,255,0.2); letter-spacing: 0.06em; z-index: 100; font-weight: 600; }
-    .audio-badge { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; white-space: nowrap; }
+    .audio-badge { position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; white-space: nowrap; }
 
     /* ── SETTINGS TAP ZONE ── */
     .settings-tap-zone { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 220px; height: 70px; z-index: 200; }
