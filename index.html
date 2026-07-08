@@ -157,7 +157,7 @@
 
     /* ── STAFF PANEL ── */
     .staff-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.96);
+      position: fixed; inset: 0; background: #080808;
       display: none; flex-direction: column; z-index: 500;
     }
     .staff-overlay.open { display: flex; }
@@ -245,16 +245,17 @@
     .staff-status { font-size: 14px; color: rgba(255,255,255,0.2); text-align: center; padding: 2rem; }
 
     /* QUEUE LIST */
-    .staff-queue-section { border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; max-height: 200px; overflow-y: auto; }
-    .staff-queue-title { font-size: 10px; font-weight: 800; letter-spacing: 0.2em; color: rgba(255,255,255,0.2); text-transform: uppercase; padding: 1rem 2rem 0.5rem; }
+    .staff-queue-section { border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; max-height: 280px; overflow-y: auto; }
+    .staff-queue-title { font-size: 13px; font-weight: 800; letter-spacing: 0.2em; color: rgba(255,255,255,0.35); text-transform: uppercase; padding: 1.25rem 2rem 0.75rem; }
     .staff-queue-list { list-style: none; }
-    .staff-queue-item { display: flex; align-items: center; gap: 10px; padding: 8px 2rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .staff-queue-item { display: flex; align-items: center; gap: 12px; padding: 12px 2rem; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background 0.1s; }
+    .staff-queue-item:hover { background: rgba(255,255,255,0.05); }
     .staff-queue-item:last-child { border-bottom: none; }
-    .staff-queue-thumb { width: 36px; height: 36px; border-radius: 4px; background: rgba(255,255,255,0.05); flex-shrink: 0; overflow: hidden; }
+    .staff-queue-thumb { width: 46px; height: 46px; border-radius: 6px; background: rgba(255,255,255,0.05); flex-shrink: 0; overflow: hidden; }
     .staff-queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
     .staff-queue-info { flex: 1; overflow: hidden; }
-    .staff-queue-track { font-size: 13px; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .staff-queue-artist { font-size: 11px; color: rgba(255,255,255,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .staff-queue-track { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .staff-queue-artist { font-size: 13px; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* ── ERROR SCREEN ── */
     #screen-error { flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center; background: #080808; padding: 2rem; }
@@ -1129,6 +1130,20 @@ async function staffQueue(uri, name, artist, art) {
   } catch(e) {}
 }
 
+async function staffPlayFromQueue(uri, name) {
+  if (!await ensureToken()) return;
+  try {
+    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+    const playUrl = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
+    await api(playUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris: [uri] })
+    });
+    setTimeout(() => { staffRefreshState(); staffFetchQueue(); }, 800);
+  } catch(e) {}
+}
+
 async function staffFetchQueue() {
   if (!await ensureToken()) return;
   try {
@@ -1139,15 +1154,20 @@ async function staffFetchQueue() {
     const items = (d.queue || []).filter(t => {
       if (!t.id || seen.has(t.id)) return false;
       seen.add(t.id); return true;
-    }).slice(0, 6);
+    }).slice(0, 8);
     const list = document.getElementById('staff-queue-list');
+    const safe = s => s.replace(/'/g,"\'");
     list.innerHTML = items.length ? items.map(t => {
-      const a = t.album?.images?.[2]?.url || '';
-      return `<li class="staff-queue-item">
+      const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
+      return `<li class="staff-queue-item" onclick="staffPlayFromQueue('${safe(t.uri)}','${safe(t.name)}')" title="Play now">
         <div class="staff-queue-thumb">${a?`<img src="${a}" alt="">`:''}</div>
-        <div class="staff-queue-info"><div class="staff-queue-track">${t.name}</div><div class="staff-queue-artist">${t.artists.map(a=>a.name).join(', ')}</div></div>
+        <div class="staff-queue-info">
+          <div class="staff-queue-track">${t.name}</div>
+          <div class="staff-queue-artist">${t.artists.map(a=>a.name).join(', ')}</div>
+        </div>
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:rgba(255,255,255,0.2);flex-shrink:0"><path d="M8 5v14l11-7z"/></svg>
       </li>`;
-    }).join('') : '<li style="padding:0.75rem 2rem;font-size:13px;color:rgba(255,255,255,0.2)">Queue is empty</li>';
+    }).join('') : '<li style="padding:1rem 2rem;font-size:14px;color:rgba(255,255,255,0.2)">Queue is empty</li>';
   } catch(e) {}
 }
 
