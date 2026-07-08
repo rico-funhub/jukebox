@@ -650,6 +650,7 @@
   <p class="oos-sub" id="oos-sub"></p>
   <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:0.5rem;">
     <button class="oos-unlock" onclick="openPinOverlay('oos')">Staff unlock</button>
+    <button class="oos-unlock" id="oos-switch-btn" style="display:none;border-color:rgba(29,185,84,0.4);color:#1DB954;" onclick="openPinOverlay('switchkey')">Switch to other key</button>
   </div>
 </div>
 
@@ -668,7 +669,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.1.3</p>
+<p class="version-badge">v1.2.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -731,14 +732,25 @@
       <div id="device-list" style="width:100%;"></div>
     </div>
 
-    <!-- APP KEY -->
+    <!-- APP KEYS (two Premium apps = two rate-limit buckets) -->
+    <div class="settings-row">
+      <div class="settings-label">Active key<small>Which app the jukebox runs on now</small></div>
+      <button class="s-btn" id="key-switch-btn" onclick="switchActiveKey(activeKey==='A'?'B':'A')" style="display:none;">Switch to Key B</button>
+    </div>
     <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.6rem;">
-      <div class="settings-label">App key (Client ID)<small id="main-key-hint">No key set</small></div>
+      <div class="settings-label">Key A (Client ID)<small id="key-a-hint">not set</small></div>
       <div style="display:flex;gap:8px;width:100%;">
-        <input id="main-key-input" placeholder="Spotify Client ID" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;font-family:monospace;outline:none;" />
-        <button class="s-btn" onclick="saveMainKey()">Save</button>
+        <input id="key-a-input" placeholder="Spotify Client ID (Premium app)" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;font-family:monospace;outline:none;" />
+        <button class="s-btn" onclick="saveKey('A')">Save</button>
       </div>
-      <small style="font-size:11px;color:rgba(255,255,255,0.3);">From your Spotify Developer Dashboard (must be a Premium account). Saving reconnects Spotify. The app's Redirect URI must be https://rico-funhub.github.io/jukebox</small>
+    </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.6rem;">
+      <div class="settings-label">Key B (Client ID)<small id="key-b-hint">not set</small></div>
+      <div style="display:flex;gap:8px;width:100%;">
+        <input id="key-b-input" placeholder="Second Premium Client ID (optional)" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;font-family:monospace;outline:none;" />
+        <button class="s-btn" onclick="saveKey('B')">Save</button>
+      </div>
+      <small style="font-size:11px;color:rgba(255,255,255,0.3);">Both must be Premium apps from the Spotify Developer Dashboard, each with Redirect URI https://rico-funhub.github.io/jukebox. Two keys = two separate rate-limit buckets; if one is cooling down, switch to the other. Switching the active key reconnects Spotify.</small>
     </div>
     <div class="settings-row">
       <div class="settings-label">On-screen keyboard<small>Built-in keyboard for touchscreens</small></div>
@@ -823,9 +835,17 @@
 
 // ── CONSTANTS ──
 // No built-in key: every install enters its own Spotify Client ID (first-run setup).
-let mainClientId = localStorage.getItem('jukebox_main_key') || '';
+// Two Premium app keys (A + B) = two separate rate-limit buckets. Either can run
+// the in-app player (both Premium). If one bucket cools down, flip to the other.
+// Migrate the old single-key storage into slot A on first load of this version.
+let keyA = localStorage.getItem('jukebox_key_a') || localStorage.getItem('jukebox_main_key') || '';
+let keyB = localStorage.getItem('jukebox_key_b') || '';
+let activeKey = localStorage.getItem('jukebox_active_key') || 'A';
+if (!localStorage.getItem('jukebox_key_a') && keyA) localStorage.setItem('jukebox_key_a', keyA);
 // The Client ID in force this session.
-function CLIENT_ID() { return mainClientId; }
+function CLIENT_ID() { return activeKey === 'B' ? keyB : keyA; }
+// The other key, for failover. '' if not set.
+function otherKey() { return activeKey === 'B' ? keyA : keyB; }
 // Do we have a usable key? If not, first-run setup is required.
 function haveKey() { return !!CLIENT_ID(); }
 
@@ -1055,8 +1075,10 @@ function saveSetupKey() {
     if (err) err.textContent = 'That doesn\'t look like a Client ID (should be 32 letters/numbers). Check the guide below.';
     return;
   }
-  mainClientId = v;
-  localStorage.setItem('jukebox_main_key', v);
+  keyA = v;
+  activeKey = 'A';
+  localStorage.setItem('jukebox_key_a', v);
+  localStorage.setItem('jukebox_active_key', 'A');
   if (err) err.textContent = '';
   // Key in place — go straight into the Spotify connect flow.
   startAuth();
@@ -1163,6 +1185,8 @@ function enterOutOfService() {
   outOfService = true;
   localStorage.setItem('jukebox_oos', '1');
   logError('E-API-429', 'kiosk out of service');
+  const sw = document.getElementById('oos-switch-btn');
+  if (sw) { sw.textContent = 'Switch to Key ' + (activeKey === 'A' ? 'B' : 'A'); sw.style.display = otherKey() ? 'inline-block' : 'none'; }
   showScreen('oos');
   scheduleOosProbe();
 }
@@ -1536,8 +1560,8 @@ async function queueTrack(uri, name, artist, art) {
       if (currentScreen === 'search') closeSearch();
       showScreen('playing');
     }
-    setTimeout(fetchQueue, 1500);
-    setTimeout(fetchQueue, 3500);
+    // One refresh ~2s after the add is enough for Spotify to reflect the new queue.
+    setTimeout(fetchQueue, 2000);
   } catch(e) {
     logError('E-PLAY-01', String(e));
     const el = document.getElementById('search-status') || document.getElementById('split-status');
@@ -1705,6 +1729,7 @@ function checkPin(val) {
   if (val === settingsPin) {
     closePinOverlay();
     if (pinPurpose === 'oos') exitOutOfService();
+    else if (pinPurpose === 'switchkey') switchActiveKey(activeKey === 'A' ? 'B' : 'A');
     else openStaff();
   }
   else { document.getElementById('pin-error').textContent = 'Incorrect PIN'; document.getElementById('pin-input').value = ''; }
@@ -1862,20 +1887,44 @@ function reconnectForKeyChange() {
   window.location.href = window.location.pathname;
 }
 
-function saveMainKey() {
-  const v = (document.getElementById('main-key-input').value || '').trim();
-  if (!v) { alert('Enter a Client ID.'); return; }
-  mainClientId = v;
-  localStorage.setItem('jukebox_main_key', v);
-  if (confirm('App key saved. The jukebox must reconnect to Spotify now with the new key. Reconnect?')) reconnectForKeyChange();
+function saveKey(slot) {
+  const v = (document.getElementById('key-' + slot.toLowerCase() + '-input').value || '').trim();
+  if (v && !/^[0-9a-fA-F]{32}$/.test(v)) { alert('That doesn\'t look like a Client ID (32 letters/numbers).'); return; }
+  if (slot === 'A') { keyA = v; localStorage.setItem('jukebox_key_a', v); }
+  else { keyB = v; localStorage.setItem('jukebox_key_b', v); }
+  // If we just changed the key that's currently active, we must reconnect.
+  if (slot === activeKey) {
+    if (confirm('Key ' + slot + ' saved. It\'s the active key, so the jukebox must reconnect to Spotify now. Reconnect?')) reconnectForKeyChange();
+    else renderKeySettings();
+  } else {
+    renderKeySettings();
+  }
+}
+
+// Switch active key (A<->B). Both Premium, both run in-app. Reconnect required.
+function switchActiveKey(slot) {
+  if (slot === activeKey) return;
+  const target = slot === 'B' ? keyB : keyA;
+  if (!target) { alert('Key ' + slot + ' is not set. Add it first.'); return; }
+  activeKey = slot;
+  localStorage.setItem('jukebox_active_key', slot);
+  localStorage.removeItem('jukebox_oos');
+  outOfService = false;
+  if (confirm('Switching to Key ' + slot + '. The jukebox must reconnect to Spotify now. Reconnect?')) reconnectForKeyChange();
   else renderKeySettings();
 }
 
 function renderKeySettings() {
-  const mainIn = document.getElementById('main-key-input');
-  if (mainIn && !mainIn.value) mainIn.value = mainClientId;
-  const mainHint = document.getElementById('main-key-hint');
-  if (mainHint) mainHint.textContent = mainClientId ? 'Key set' : '⚠️ No key — jukebox cannot connect';
+  const aIn = document.getElementById('key-a-input');
+  if (aIn && !aIn.value) aIn.value = keyA;
+  const bIn = document.getElementById('key-b-input');
+  if (bIn && !bIn.value) bIn.value = keyB;
+  const aHint = document.getElementById('key-a-hint');
+  if (aHint) aHint.textContent = (activeKey === 'A' ? '● ACTIVE · ' : '') + (keyA ? 'Key set' : 'not set');
+  const bHint = document.getElementById('key-b-hint');
+  if (bHint) bHint.textContent = (activeKey === 'B' ? '● ACTIVE · ' : '') + (keyB ? 'Key set' : 'not set');
+  const sw = document.getElementById('key-switch-btn');
+  if (sw) { sw.textContent = 'Switch to Key ' + (activeKey === 'A' ? 'B' : 'A'); sw.style.display = otherKey() ? 'inline-block' : 'none'; }
 }
 
 // ── HELP / TROUBLESHOOTING ──
