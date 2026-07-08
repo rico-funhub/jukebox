@@ -153,6 +153,16 @@
     .search-status { font-size: 16px; color: rgba(255,255,255,0.25); padding: 3rem 0; text-align: center; }
     #screen-search::after { content: ''; position: fixed; bottom: 0; left: 0; right: 0; height: 100px; background: linear-gradient(to top, #080808 0%, transparent 100%); pointer-events: none; z-index: 10; }
 
+
+    /* ── ERROR SCREEN ── */
+    #screen-error { flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center; background: #080808; padding: 2rem; }
+    .error-logo { width: 160px; object-fit: contain; opacity: 0.6; }
+    .error-title { font-size: clamp(28px, 5vw, 48px); font-weight: 900; color: #fff; }
+    .error-msg { font-size: clamp(16px, 2.5vw, 22px); color: rgba(255,255,255,0.45); max-width: 500px; line-height: 1.5; }
+    .error-staff { font-size: clamp(13px, 1.8vw, 18px); color: #D4AF37; font-weight: 700; letter-spacing: 0.06em; margin-top: 0.5rem; }
+    .error-retry { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 30px; padding: 14px 36px; font-size: 16px; font-weight: 700; color: #fff; cursor: pointer; font-family: inherit; margin-top: 1rem; }
+    .error-retry:hover { background: rgba(255,255,255,0.14); }
+
     /* ── CREDITS BADGE ── */
     .credits-badge {
       position: fixed; bottom: 1.5rem; right: 1.5rem; display: none;
@@ -174,7 +184,7 @@
     .lang-btn:hover { opacity: 0.8; }
 
     /* ── AUDIO BADGE ── */
-    .audio-badge { position: fixed; top: 1.25rem; left: 1.5rem; font-size: 12px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; }
+    .audio-badge { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; white-space: nowrap; }
 
     /* ── SETTINGS TAP ZONE ── */
     .settings-tap-zone { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 220px; height: 70px; z-index: 200; }
@@ -275,6 +285,16 @@
     <p id="search-status" class="search-status"></p>
     <ul id="search-results" class="search-results"></ul>
   </div>
+</div>
+
+
+<!-- ERROR -->
+<div id="screen-error" class="screen">
+  <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="error-logo" alt="FUNHUB" />
+  <p class="error-title" id="error-title">Something went wrong</p>
+  <p class="error-msg" id="error-msg">The jukebox ran into a problem and couldn't recover automatically.</p>
+  <p class="error-staff">⚠️ Please ask a staff member for help</p>
+  <button class="error-retry" onclick="retryFromError()">Try again</button>
 </div>
 
 <!-- CREDITS -->
@@ -819,6 +839,21 @@ function loadState() {
   } catch(e) { return null; }
 }
 
+
+// ── ERROR HANDLING ──
+function showError(title, msg) {
+  const t = document.getElementById('error-title');
+  const m = document.getElementById('error-msg');
+  if (t) t.textContent = title || 'Something went wrong';
+  if (m) m.textContent = msg || 'The jukebox ran into a problem.';
+  showScreen('error');
+}
+
+function retryFromError() {
+  sessionStorage.clear();
+  window.location.href = window.location.pathname;
+}
+
 // ── KEEP ALIVE ──
 function startKeepAlive() {
   setInterval(() => { if (isPlaying) fetchQueue(); }, 8000);
@@ -877,7 +912,15 @@ async function init() {
   }
 }
 
-init();
+async function safeInit() {
+  try {
+    await init();
+  } catch(e) {
+    showError('Could not start', 'Something went wrong loading the jukebox. Please ask a staff member.');
+  }
+}
+
+safeInit();
 </script>
 </body>
 </html>
