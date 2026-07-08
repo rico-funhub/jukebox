@@ -303,6 +303,7 @@ let credits = 0;
 let playedUris = new Set();
 let searchTimer = null, splitTimer = null;
 let refreshTimer = null, refreshBusy = false;
+let sdkReady = false;
 
 // ── LANG ──
 const T = {
@@ -448,6 +449,7 @@ async function initPlayer() {
     sessionStorage.setItem('spotify_device_id', device_id);
     document.getElementById('audio-badge').style.display = 'block';
     api('https://api.spotify.com/v1/me/player', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_ids: [device_id], play: false }) });
+    setTimeout(() => { sdkReady = true; }, 3000);
   });
   spotifyPlayer.addListener('not_ready', () => {
     deviceId = null;
@@ -459,8 +461,8 @@ async function initPlayer() {
 }
 
 function onState(state) {
-  if (!state || !state.track_window?.current_track) { isPlaying = false; if (currentScreen === 'playing') showScreen('attract'); return; }
-  if (state.paused) { isPlaying = false; if (currentScreen === 'playing') showScreen('attract'); return; }
+  if (!state || !state.track_window?.current_track) { isPlaying = false; if (sdkReady && currentScreen === 'playing') showScreen('attract'); return; }
+  if (state.paused) { isPlaying = false; if (sdkReady && currentScreen === 'playing') showScreen('attract'); return; }
   isPlaying = true;
   const track = state.track_window.current_track;
   if (track?.uri) playedUris.add(track.uri);
