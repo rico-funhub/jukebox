@@ -413,7 +413,7 @@
 
     /* ── AUDIO BADGE ── */
     .version-badge { position: fixed; top: 1.25rem; right: 1.5rem; font-size: 11px; color: rgba(255,255,255,0.2); letter-spacing: 0.06em; z-index: 100; font-weight: 600; }
-    .audio-badge { position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; white-space: nowrap; }
+    .audio-badge { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: #1DB954; letter-spacing: 0.08em; z-index: 100; display: none; white-space: nowrap; }
 
     /* ── SETTINGS TAP ZONE ── */
     .settings-tap-zone { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 220px; height: 70px; z-index: 200; }
@@ -650,6 +650,10 @@
       <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
     </div>
     <div class="settings-row">
+      <div class="settings-label">On-screen keyboard<small>Built-in keyboard for touchscreens</small></div>
+      <button class="s-btn" id="osk-toggle-btn" onclick="toggleOskSetting()">On</button>
+    </div>
+    <div class="settings-row">
       <div class="settings-label">Coin / card input<small>Current: <span id="coin-key-display">T</span></small></div>
       <button class="s-btn" id="coin-map-btn" onclick="startCoinMapping()">Remap</button>
     </div>
@@ -715,6 +719,7 @@ let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
 let creditsPerSong = parseInt(localStorage.getItem('jukebox_cps') || '1');
 let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
 let coinKey = localStorage.getItem('jukebox_coin_key') || 't';
+let oskEnabled = localStorage.getItem('jukebox_osk') !== 'off';
 let coinKeyLabel = localStorage.getItem('jukebox_coin_key_label') || 'T';
 let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
@@ -1191,6 +1196,7 @@ function checkPin(val) {
 function openSettings() {
   document.getElementById('s-credits-loaded').textContent = credits + ' credits';
   const ckd = document.getElementById('coin-key-display'); if (ckd) ckd.textContent = coinKeyLabel;
+  const otb = document.getElementById('osk-toggle-btn'); if (otb) otb.textContent = oskEnabled ? 'On' : 'Off';
   document.getElementById('cpt-val').textContent = creditsPerTap;
   document.getElementById('cps-val').textContent = creditsPerSong;
   const rev = getRevenueReport();
@@ -1230,6 +1236,14 @@ async function settingsResetQueue() {
   const url = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
   await api(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: ['spotify:track:2grjqo0Frpf2okIBiifQKs'] }) });
   closeSettings();
+}
+
+function toggleOskSetting() {
+  oskEnabled = !oskEnabled;
+  localStorage.setItem('jukebox_osk', oskEnabled ? 'on' : 'off');
+  const btn = document.getElementById('osk-toggle-btn');
+  if (btn) btn.textContent = oskEnabled ? 'On' : 'Off';
+  if (!oskEnabled) hideOsk();
 }
 
 function startCoinMapping() {
