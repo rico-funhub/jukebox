@@ -669,7 +669,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.0.14</p>
+<p class="version-badge">v1.1.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -853,7 +853,6 @@ function haveKey() { return !!CLIENT_ID(); }
 
 const REDIRECT_URI = 'https://rico-funhub.github.io/jukebox';
 const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing streaming user-read-email user-read-private';
-const LOGO = 'https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png';
 
 // ── STATE ──
 let accessToken = null, tokenExpiry = 0, refreshToken = null;
@@ -1230,6 +1229,23 @@ function targetDevice() {
   return deviceId || sessionStorage.getItem('spotify_device_id') || '';
 }
 
+// Shared playback primitives — every queue/play call routes through these so the
+// URL shape, device targeting and method live in ONE place.
+// queueOrPlay: append to queue if something's playing, else start playback.
+// forcePlay: always start this track now (replaces current).
+async function queueOrPlay(uri, playing) {
+  const did = targetDevice();
+  if (playing) {
+    return await api(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}` + (did ? `&device_id=${did}` : ''), { method: 'POST' });
+  }
+  return await forcePlay(uri);
+}
+
+async function forcePlay(uri) {
+  const did = targetDevice();
+  return await api(`https://api.spotify.com/v1/me/player/play` + (did ? `?device_id=${did}` : ''), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
+}
+
 // Fetch the list of Spotify Connect devices this account can see.
 async function fetchDevices() {
   if (!await ensureToken()) return [];
@@ -1488,18 +1504,10 @@ async function queueTrack(uri, name, artist, art) {
     return;
   }
   try {
-    const did = targetDevice();
     // Use the playback state we already track from the SDK, instead of an extra
     // me/player call every song. Halves the requests per song request.
     const playing = isPlaying;
-
-    async function attempt() {
-      if (playing) {
-        return await api(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}` + (did ? `&device_id=${did}` : ''), { method: 'POST' });
-      } else {
-        return await api(`https://api.spotify.com/v1/me/player/play` + (did ? `?device_id=${did}` : ''), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
-      }
-    }
+    const attempt = () => queueOrPlay(uri, playing);
 
     let r = await attempt();
     if (r && r.status === 429) {
@@ -1764,9 +1772,7 @@ function settingsClearCredits() {
 
 async function settingsResetQueue() {
   if (!await ensureToken()) return;
-  const did = targetDevice();
-  const url = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
-  await api(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: ['spotify:track:2grjqo0Frpf2okIBiifQKs'] }) });
+  await forcePlay('spotify:track:2grjqo0Frpf2okIBiifQKs');
   closeSettings();
 }
 
@@ -2472,16 +2478,7 @@ async function staffDoSearch(q) {
 async function staffQueue(uri, name, artist, art) {
   if (!await ensureToken()) return;
   try {
-    const did = targetDevice();
-    const stateR = await api('https://api.spotify.com/v1/me/player');
-    const playing = stateR?.status === 200 ? (await stateR.json())?.is_playing : false;
-    if (playing) {
-      const qurl = `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}` + (did ? `&device_id=${did}` : '');
-      await api(qurl, { method: 'POST' });
-    } else {
-      const playUrl = `https://api.spotify.com/v1/me/player/play` + (did ? `?device_id=${did}` : '');
-      await api(playUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
-    }
+    await queueOrPlay(uri, isPlaying);
     setTimeout(staffFetchQueue, 1000);
     setTimeout(staffRefreshState, 800);
   } catch(e) {}
@@ -2490,13 +2487,7 @@ async function staffQueue(uri, name, artist, art) {
 async function staffPlayFromQueue(uri, name) {
   if (!await ensureToken()) return;
   try {
-    const did = targetDevice();
-    const playUrl = 'https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : '');
-    await api(playUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uris: [uri] })
-    });
+    await forcePlay(uri);
     setTimeout(() => { staffRefreshState(); staffFetchQueue(); }, 800);
   } catch(e) {}
 }
