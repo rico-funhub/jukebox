@@ -236,17 +236,17 @@
     /* ── ON-SCREEN KEYBOARD ── */
     .osk-wrap {
       position: relative; z-index: 1;
-      padding: 10px 16px 14px;
+      padding: 10px 12px 14px;
       border-top: 1px solid rgba(255,255,255,0.07);
       background: rgba(0,0,0,0.3);
       flex-shrink: 0;
+      width: 100%;
     }
-    .osk { display: flex; flex-direction: column; gap: 9px; align-items: center; }
-    .osk-row { display: flex; gap: 7px; justify-content: center; width: 100%; }
+    .osk { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+    .osk-row { display: flex; gap: 6px; width: 100%; }
     .osk-key {
-      height: 46px;
+      height: 48px;
       flex: 1;
-      max-width: 58px;
       border-radius: 8px;
       border: none;
       background: #3a3a3c;
@@ -259,32 +259,25 @@
       user-select: none; -webkit-user-select: none;
       box-shadow: 0 2px 0 rgba(0,0,0,0.5);
       transition: filter 0.05s;
+      min-width: 0;
     }
-    .osk-key:active { filter: brightness(1.4); transform: translateY(1px); box-shadow: none; }
-    .osk-key.key-special {
-      background: #636366;
-      font-size: 15px;
-      flex: 1.5;
-      max-width: 80px;
-    }
+    .osk-key:active { filter: brightness(1.5); transform: translateY(1px); box-shadow: none; }
     .osk-key.key-space {
       background: #3a3a3c;
       flex: 5;
-      max-width: 99999px;
-      font-size: 15px;
-      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+      color: rgba(255,255,255,0.4);
     }
     .osk-key.key-del {
       background: #636366;
       font-size: 20px;
       flex: 1.5;
-      max-width: 80px;
     }
     .osk-key.key-clear {
-      background: rgba(255,60,60,0.5);
-      font-size: 14px;
+      background: rgba(200,40,40,0.7);
+      font-size: 13px;
+      font-weight: 700;
       flex: 1.5;
-      max-width: 80px;
     }
 
     /* ── STAFF PANEL ── */
@@ -1361,7 +1354,7 @@ function buildOsk(containerId, inputId) {
 
   // Row 3: ASDFGHJKL + backspace
   const r3 = document.createElement('div'); r3.className = 'osk-row';
-  r3.style.width = '95%';
+
   ['A','S','D','F','G','H','J','K','L'].forEach(k =>
     r3.appendChild(makeKey(k, '', () => oskType(inputId, k))));
   r3.appendChild(makeKey('⌫', 'key-del', () => oskDel(inputId)));
@@ -1369,7 +1362,7 @@ function buildOsk(containerId, inputId) {
 
   // Row 4: ZXCVBNM + space + clear
   const r4 = document.createElement('div'); r4.className = 'osk-row';
-  r4.style.width = '100%';
+
   ['Z','X','C','V','B','N','M'].forEach(k =>
     r4.appendChild(makeKey(k, '', () => oskType(inputId, k))));
   r4.appendChild(makeKey('space', 'key-space', () => oskType(inputId, ' ')));
