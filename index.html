@@ -184,6 +184,7 @@ let accessToken = null, tokenExpiry = 0, refreshToken = null;
 let deviceId = null, spotifyPlayer = null;
 let isPlaying = false, currentScreen = 'auth';
 let credits = 0;
+let playedUris = new Set();
 let searchTimer = null, splitTimer = null;
 let refreshTimer = null, refreshBusy = false;
 
@@ -216,7 +217,7 @@ function showScreen(id) {
   currentScreen = id;
   const cb = document.getElementById('credits-badge');
   cb.style.display = (credits > 0 && (id === 'attract' || id === 'playing')) ? 'flex' : 'none';
-  if (id === 'attract') { credits = 0; updateAttract(); setLang(lang); }
+  if (id === 'attract') { credits = 0; playedUris = new Set(); updateAttract(); setLang(lang); }
 }
 
 function updateAttract() {
@@ -346,6 +347,7 @@ function onState(state) {
   if (state.paused) { isPlaying = false; if (currentScreen === 'playing') showScreen('attract'); return; }
   isPlaying = true;
   const track = state.track_window.current_track;
+  if (track?.uri) playedUris.add(track.uri);
   const art = track.album?.images?.[0]?.url || null;
   document.getElementById('playing-track').textContent = track.name;
   document.getElementById('playing-artist').textContent = track.artists.map(a => a.name).join(', ');
@@ -374,10 +376,11 @@ async function fetchQueue() {
     const items = raw.filter(t => {
       if (!t.id) return false;
       if (seen.has(t.id) || seen.has(t.uri)) return false;
+      if (playedUris.has(t.uri)) return false;
       seen.add(t.id);
       seen.add(t.uri);
       return true;
-    }).slice(0, 8);
+    }).slice(0, -1).slice(0, 8);
     const list = document.getElementById('queue-list');
     list.innerHTML = items.length ? items.map((t,i) => {
       const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
@@ -402,6 +405,7 @@ async function queueTrack(uri, name, artist, art) {
       await api(playUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
     }
 
+    playedUris.add(uri);
     credits = Math.max(0, credits - 1);
     closeSplit();
     if (currentScreen === 'search') closeSearch();
