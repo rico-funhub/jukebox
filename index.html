@@ -292,6 +292,22 @@
 
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
 <script>
+// ── EMERGENCY RESET — runs before anything else ──
+(function() {
+  if (new URLSearchParams(window.location.search).get('reset') === '1') {
+    sessionStorage.clear();
+    localStorage.removeItem('jukebox_pin');
+    localStorage.removeItem('jukebox_credits_per_tap');
+    localStorage.removeItem('jukebox_credits_per_song');
+    window.history.replaceState(null, '', window.location.pathname);
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const auth = document.getElementById('screen-auth');
+      if (auth) auth.classList.add('active');
+    });
+  }
+})();
+
 const CLIENT_ID = 'd62edf739b664da690510800a0c5beec';
 const REDIRECT_URI = 'https://rico-funhub.github.io/jukebox';
 const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing streaming user-read-email user-read-private';
@@ -749,13 +765,9 @@ function loadPlaybackState() {
 
 // ── INIT ──
 async function init() {
-  // Handle reset
-  if (new URLSearchParams(window.location.search).get('reset') === '1') {
-    sessionStorage.clear();
-    window.history.replaceState(null, '', window.location.pathname);
-    showScreen('auth');
-    return;
-  }
+  // Reset already handled at script top if ?reset=1
+  if (new URLSearchParams(window.location.search).get('reset') === '1') return;
+
 
   // Handle OAuth callback
   const params = new URLSearchParams(window.location.search);
