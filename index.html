@@ -602,7 +602,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.0.7</p>
+<p class="version-badge">v1.0.8</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -952,7 +952,13 @@ async function ensureToken() {
   return true;
 }
 
+// When Spotify 429s us it sends Retry-After (seconds). Honour it: hold ALL calls
+// until then instead of pounding the API and re-earning the block. Dev-mode
+// cooldowns can be hours, so this is what keeps one bad minute from snowballing.
+let rateLimitUntil = 0;
+
 async function api(url, opts = {}) {
+  if (Date.now() < rateLimitUntil) { logError('E-API-429', 'in cooldown, call skipped'); return null; }
   if (!await ensureToken()) { logError('E-AUTH-01'); return null; }
   opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + accessToken };
   let r;
@@ -966,6 +972,10 @@ async function api(url, opts = {}) {
     await doRefresh();
     opts.headers.Authorization = 'Bearer ' + accessToken;
     try { r = await fetch(url, opts); } catch(e) { logError('E-NET-01', String(e)); return null; }
+  }
+  if (r.status === 429) {
+    const retry = parseInt(r.headers.get('Retry-After') || '30');
+    rateLimitUntil = Date.now() + (retry + 1) * 1000;
   }
   if (!r.ok) logError(apiErrorCode(r.status), url.split('?')[0]);
   return r;
@@ -1967,11 +1977,7 @@ function postAuthSetup() {
 }
 
 function startKeepAlive() {
-  setInterval(() => { if (isPlaying) fetchQueue(); }, 8000);
-  setInterval(async () => {
-    if (!accessToken) return;
-    try { await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + accessToken } }); } catch(e) {}
-  }, 30000);
+  setInterval(() => { if (isPlaying) fetchQueue(); }, 20000);
   setInterval(() => {
     if (!deviceId && accessToken && spotifyPlayer) { try { spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
   }, 60000);
