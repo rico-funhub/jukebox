@@ -485,18 +485,11 @@
 
   <div class="split-panel" id="split-panel">
     <div class="split-top">
-      <input id="split-input" class="split-input" type="text" autocomplete="off" readonly onfocus="this.blur()" />
+      <input id="split-input" class="split-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="splitSearch(this.value)" />
     </div>
     <p id="split-status" class="split-status"></p>
     <ul id="split-results" class="split-results"></ul>
-    <div class="osk-wrap" id="osk-split">
-      <div class="osk">
-        <div class="osk-row" id="osk-split-row-1"></div>
-        <div class="osk-row" id="osk-split-row-2"></div>
-        <div class="osk-row" id="osk-split-row-3"></div>
-        <div class="osk-row" id="osk-split-row-4"></div>
-      </div>
-    </div>
+    <div class="osk-wrap"><div class="osk" id="osk-split"></div></div>
   </div>
 </div>
 
@@ -505,13 +498,14 @@
   <div id="search-bg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(60px) brightness(0.15);transform:scale(1.15);z-index:0;"></div>
   <div class="search-top" style="position:relative;z-index:1;">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="search-logo" alt="FUNHUB" />
-    <input id="search-input" class="search-input" type="text" autocomplete="off" readonly onfocus="this.blur()" placeholder="" />
+    <input id="search-input" class="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="liveSearch(this.value)" />
     <button class="search-cancel" id="search-cancel" onclick="closeSearch()">Back</button>
   </div>
   <div class="search-results-wrap" style="position:relative;z-index:1;">
     <p id="search-status" class="search-status"></p>
     <ul id="search-results" class="search-results"></ul>
   </div>
+  <div class="osk-wrap" style="position:relative;z-index:1;"><div id="osk-main" class="osk"></div></div>
 </div>
 
 
@@ -1321,73 +1315,67 @@ const OSK_ROWS = [
   ['Z','X','C','V','B','N','M']
 ];
 
-function buildOsk(prefix) {
-  const suffixes = ['1','2','3','4'];
-  OSK_ROWS.forEach((row, ri) => {
-    const el = document.getElementById(`${prefix}-row-${suffixes[ri]}`);
-    if (!el) return;
-    el.innerHTML = '';
-    if (ri === 3) {
-      // Last row: add DEL on left, SPACE, clear on right
-      const del = makeKey('⌫', 'del wide', () => oskDel(prefix));
-      el.appendChild(del);
+function buildOsk(containerId, inputId) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  const rows = [
+    OSK_ROWS[0],
+    OSK_ROWS[1],
+    OSK_ROWS[2],
+    OSK_ROWS[3]
+  ];
+
+  rows.forEach((row, ri) => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'osk-row';
+
+    // Row 3 (index 2): add ⌫ at end
+    row.forEach(k => rowEl.appendChild(makeKey(k, '', () => oskType(inputId, k))));
+    if (ri === 2) {
+      rowEl.appendChild(makeKey('⌫', 'del wide', () => oskDel(inputId)));
     }
-    row.forEach(k => el.appendChild(makeKey(k, '', () => oskType(prefix, k))));
+
+    // Row 4 (index 3): SPACE bar and clear
     if (ri === 3) {
-      const sp = makeKey('SPACE', 'space', () => oskType(prefix, ' '));
-      el.appendChild(sp);
-      const clr = makeKey('✕', 'del wide', () => oskClear(prefix));
-      el.appendChild(clr);
+      rowEl.appendChild(makeKey('ESPACE', 'space', () => oskType(inputId, ' ')));
+      rowEl.appendChild(makeKey('✕', 'del wide', () => oskClear(inputId)));
     }
+
+    wrap.appendChild(rowEl);
   });
-  // Row 3: add backspace on right
-  const row3 = document.getElementById(`${prefix}-row-3`);
-  if (row3) {
-    const bk = makeKey('⌫', 'del wide', () => oskDel(prefix));
-    row3.appendChild(bk);
-  }
-  // Remove duplicate del from row 4
-  const r4 = document.getElementById(`${prefix}-row-4`);
-  if (r4 && r4.children.length > 0 && r4.children[0].textContent === '⌫') {
-    r4.removeChild(r4.children[0]);
-  }
 }
 
 function makeKey(label, cls, fn) {
   const btn = document.createElement('button');
-  btn.className = 'osk-key ' + cls;
+  btn.className = 'osk-key ' + (cls || '');
   btn.textContent = label;
+  btn.setAttribute('tabindex', '-1');
   btn.addEventListener('touchstart', e => { e.preventDefault(); fn(); }, { passive: false });
   btn.addEventListener('mousedown', e => { e.preventDefault(); fn(); });
   return btn;
 }
 
-function getInputId(prefix) {
-  return prefix === 'osk-main' ? 'search-input' : 'split-input';
-}
-
-function oskType(prefix, char) {
-  const inp = document.getElementById(getInputId(prefix));
+function oskType(inputId, char) {
+  const inp = document.getElementById(inputId);
   if (!inp) return;
   inp.value += char;
-  if (prefix === 'osk-main') liveSearch(inp.value);
-  else splitSearch(inp.value);
+  inp.dispatchEvent(new Event('input'));
 }
 
-function oskDel(prefix) {
-  const inp = document.getElementById(getInputId(prefix));
+function oskDel(inputId) {
+  const inp = document.getElementById(inputId);
   if (!inp) return;
   inp.value = inp.value.slice(0, -1);
-  if (prefix === 'osk-main') liveSearch(inp.value);
-  else splitSearch(inp.value);
+  inp.dispatchEvent(new Event('input'));
 }
 
-function oskClear(prefix) {
-  const inp = document.getElementById(getInputId(prefix));
+function oskClear(inputId) {
+  const inp = document.getElementById(inputId);
   if (!inp) return;
   inp.value = '';
-  if (prefix === 'osk-main') liveSearch('');
-  else splitSearch('');
+  inp.dispatchEvent(new Event('input'));
 }
 
 // ── ATTRACT BACKGROUND ROTATION ──
@@ -1723,8 +1711,8 @@ async function safeInit() {
 }
 
 safeInit();
-buildOsk("osk-main");
-buildOsk("osk-split");
+buildOsk("osk-main", "search-input");
+buildOsk("osk-split", "split-input");
 </script>
 </body>
 </html>
