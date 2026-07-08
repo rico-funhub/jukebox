@@ -542,22 +542,18 @@ function onStateChange(state) {
 
   isPlaying = !state.paused;
 
-  // If paused and queue is empty — go back to attract
+  // Paused — go to attract regardless
   if (state.paused) {
-    const queueEmpty = !state.track_window?.next_tracks?.length;
-    if (queueEmpty) {
-      showScreen('attract');
-      isPlaying = false;
-      return;
-    }
+    showScreen('attract');
+    isPlaying = false;
+    return;
   }
 
   // Detect autoplay — if a new track started that we didn't queue, stop it
   const uri = track.uri;
-  if (!state.paused && uri !== lastTrackUri) {
+  if (uri !== lastTrackUri) {
     lastTrackUri = uri;
     if (queuedUris.size > 0 && !queuedUris.has(uri)) {
-      // This is an autoplay track — pause and go to attract
       if (spotifyPlayer) spotifyPlayer.pause();
       else fetch('https://api.spotify.com/v1/me/player/pause', {
         method: 'PUT',
