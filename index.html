@@ -586,6 +586,7 @@
   <p class="error-title" id="error-title">Something went wrong</p>
   <p class="error-msg" id="error-msg">The jukebox ran into a problem and couldn't recover automatically.</p>
   <p class="error-staff">⚠️ Please ask a staff member for help</p>
+  <p id="error-code" style="font-size:13px;color:rgba(255,255,255,0.35);margin-top:0.5rem;font-family:monospace;"></p>
   <button class="error-retry" onclick="retryFromError()">Try again</button>
 </div>
 
@@ -601,7 +602,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.4.2</p>
+<p class="version-badge">v1.5.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -658,6 +659,10 @@
     <div class="settings-row">
       <div class="settings-label">Change PIN<small>Must be 4 digits</small></div>
       <button class="s-btn" onclick="settingsChangePin()">Change</button>
+    </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.5rem;">
+      <div class="settings-label">Recent errors<small id="err-summary">None</small></div>
+      <div id="err-log" style="width:100%;font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.7;max-height:120px;overflow-y:auto;"></div>
     </div>
     <div class="settings-row">
       <div class="settings-label">Having problems?<small>Reload and reconnect Spotify</small></div>
@@ -730,27 +735,69 @@ let idleTimer = null;
 const IDLE_MS = 900000;
 let refreshTimer = null, refreshBusy = false;
 
+// ── DIAGNOSTICS / ERROR CODES ──
+// Every failure gets a stable code so a tech knows exactly what broke.
+// Codes: E-AUTH-* auth/token, E-NET-* network, E-API-* Spotify API,
+//        E-SDK-* playback device, E-PLAY-* playback action, E-SRCH-* search.
+const ERROR_HELP = {
+  'E-AUTH-01': 'No Spotify session. Tap Reconnect in operator settings and log in.',
+  'E-AUTH-02': 'Token refresh rejected (invalid_grant). Spotify login expired or was revoked. Reconnect required.',
+  'E-AUTH-03': 'Token refresh failed (network or Spotify down). Will retry; if it persists, check internet.',
+  'E-NET-01':  'Cannot reach Spotify (network/DNS). Check the kiosk internet connection.',
+  'E-API-401': 'Spotify rejected the request (401). Token invalid — Reconnect.',
+  'E-API-403': 'Spotify forbade the request (403). Account likely not Premium, or region-locked track.',
+  'E-API-429': 'Spotify rate limit (429). Too many requests — wait a minute.',
+  'E-API-5xx': 'Spotify server error (5xx). Their side. Retry shortly.',
+  'E-SDK-01':  'No playback device. Web Playback SDK not connected — Reconnect, ensure Premium + Chrome.',
+  'E-PLAY-01': 'Could not start/queue the song. Device not ready — Reconnect.',
+  'E-SRCH-01': 'Search request failed. See attached code for cause.'
+};
+
+let lastErrors = [];
+
+function logError(code, detail) {
+  const entry = { code, detail: detail || '', at: new Date().toISOString() };
+  lastErrors.unshift(entry);
+  if (lastErrors.length > 20) lastErrors.pop();
+  try { localStorage.setItem('jukebox_errors', JSON.stringify(lastErrors)); } catch(e) {}
+  console.error(`[JUKEBOX ${code}] ${ERROR_HELP[code] || ''} ${detail || ''}`);
+  return code;
+}
+
+// Classify an HTTP response into an API error code
+function apiErrorCode(status) {
+  if (status === 401) return 'E-API-401';
+  if (status === 403) return 'E-API-403';
+  if (status === 429) return 'E-API-429';
+  if (status >= 500) return 'E-API-5xx';
+  return 'E-API-' + status;
+}
+
+function loadErrors() {
+  try { lastErrors = JSON.parse(localStorage.getItem('jukebox_errors') || '[]'); } catch(e) { lastErrors = []; }
+}
+
 // ── LANGUAGE ──
 const T = {
   en: {
     tap: 'TAP YOUR CARD', tapPlay: 'TAP TO PLAY A SONG', sub: 'to pick a song!',
     nowPlaying: 'Now playing', upNext: 'Up next',
     tapAdd: 'TAP YOUR CARD TO ADD A SONG!',
-    searchPh: 'What song do you want?', searching: 'Searching...', noResults: 'No results found.', back: 'Back', added: 'Added! Pick another song',
+    searchPh: 'What song do you want?', searching: 'Searching...', noResults: 'No results found.', back: 'Back', added: 'Added! Pick another song', searchError: 'Search unavailable. Please tell a staff member.',
     splitPh: 'Search for a song...', queueEmpty: 'Tap your card to add\nthe next song!'
   },
   fr: {
     tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TAPPEZ POUR JOUER UNE CHANSON', sub: 'pour choisir une chanson!',
     nowPlaying: 'En cours', upNext: 'À venir',
     tapAdd: 'TAPPEZ VOTRE CARTE POUR AJOUTER UNE CHANSON!',
-    searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche en cours...', noResults: 'Aucun résultat.', back: 'Retour', added: 'Ajoutée! Choisis une autre chanson',
+    searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche en cours...', noResults: 'Aucun résultat.', back: 'Retour', added: 'Ajoutée! Choisis une autre chanson', searchError: 'Recherche indisponible. Avertis un employé.',
     splitPh: 'Rechercher une chanson...', queueEmpty: 'Tappez votre carte pour ajouter\nla prochaine chanson!'
   },
   es: {
     tap: 'ACERQUE SU TARJETA', tapPlay: 'TOCA PARA PONER UNA CANCIÓN', sub: '¡para elegir una canción!',
     nowPlaying: 'Reproduciendo', upNext: 'A continuación',
     tapAdd: '¡ACERQUE SU TARJETA PARA AGREGAR UNA CANCIÓN!',
-    searchPh: '¿Qué canción quieres escuchar?', searching: 'Buscando...', noResults: 'Sin resultados.', back: 'Atrás', added: '¡Agregada! Elige otra canción',
+    searchPh: '¿Qué canción quieres escuchar?', searching: 'Buscando...', noResults: 'Sin resultados.', back: 'Atrás', added: '¡Agregada! Elige otra canción', searchError: 'Búsqueda no disponible. Avisa a un empleado.',
     splitPh: 'Buscar una canción...', queueEmpty: '¡Acerque su tarjeta para agregar\nla siguiente canción!'
   }
 };
@@ -869,7 +916,12 @@ async function doRefresh() {
     if (d.access_token) {
       saveTokens(d);
       if (spotifyPlayer) { spotifyPlayer.disconnect(); setTimeout(initPlayer, 500); }
+    } else if (d.error === 'invalid_grant') {
+      // Refresh token is truly dead — stop retrying, surface to staff.
+      logError('E-AUTH-02', JSON.stringify(d));
+      showError('Jukebox needs reconnecting', 'The Spotify login has expired.', 'E-AUTH-02');
     } else {
+      logError('E-AUTH-03', JSON.stringify(d));
       setTimeout(doRefresh, 30000);
     }
   } catch(e) { setTimeout(doRefresh, 30000); }
@@ -888,10 +940,21 @@ async function ensureToken() {
 }
 
 async function api(url, opts = {}) {
-  if (!await ensureToken()) return null;
+  if (!await ensureToken()) { logError('E-AUTH-01'); return null; }
   opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + accessToken };
-  let r = await fetch(url, opts);
-  if (r.status === 401) { await doRefresh(); opts.headers.Authorization = 'Bearer ' + accessToken; r = await fetch(url, opts); }
+  let r;
+  try {
+    r = await fetch(url, opts);
+  } catch(e) {
+    logError('E-NET-01', String(e));
+    return null;
+  }
+  if (r.status === 401) {
+    await doRefresh();
+    opts.headers.Authorization = 'Bearer ' + accessToken;
+    try { r = await fetch(url, opts); } catch(e) { logError('E-NET-01', String(e)); return null; }
+  }
+  if (!r.ok) logError(apiErrorCode(r.status), url.split('?')[0]);
   return r;
 }
 
@@ -957,6 +1020,7 @@ async function initPlayer() {
   spotifyPlayer.addListener('not_ready', () => {
     deviceId = null; sdkReady = false;
     document.getElementById('audio-badge').style.display = 'none';
+    logError('E-SDK-01', 'device went not_ready');
     setTimeout(initPlayer, 5000);
   });
   spotifyPlayer.addListener('player_state_changed', onState);
@@ -1082,8 +1146,9 @@ async function queueTrack(uri, name, artist, art) {
     setTimeout(fetchQueue, 1500);
     setTimeout(fetchQueue, 3500);
   } catch(e) {
+    logError('E-PLAY-01', String(e));
     const el = document.getElementById('search-status') || document.getElementById('split-status');
-    if (el) el.textContent = 'Could not add song. Make sure Spotify is open.';
+    if (el) el.textContent = T[lang].searchError + ' (E-PLAY-01)';
   }
 }
 
@@ -1156,7 +1221,11 @@ async function doSearch(q, resultsId, statusId, small) {
   document.getElementById(resultsId).innerHTML = '';
   try {
     const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8`);
-    if (!r || !r.ok) { document.getElementById(statusId).textContent = T[lang].noResults; return; }
+    if (!r || !r.ok) {
+      logError('E-SRCH-01', r ? ('http ' + r.status) : 'no response');
+      document.getElementById(statusId).textContent = T[lang].searchError;
+      return;
+    }
     const d = await r.json();
     const tracks = (d.tracks?.items || []).filter(t => !isBlacklisted(t));
     document.getElementById(statusId).textContent = '';
@@ -1172,7 +1241,7 @@ async function doSearch(q, resultsId, statusId, small) {
         <button class="${cls}-play-btn" aria-label="Add"><svg viewBox="0 0 24 24" style="width:${btnSize};height:${btnSize};fill:white"><path d="M8 5v14l11-7z"/></svg></button>
       </li>`;
     }).join('');
-  } catch(e) { document.getElementById(statusId).textContent = T[lang].noResults; }
+  } catch(e) { logError('E-SRCH-01', String(e)); document.getElementById(statusId).textContent = T[lang].searchError; }
 }
 
 // ── T KEY / CARD TAP ──
@@ -1250,6 +1319,13 @@ function openSettings() {
     ? '<strong style="color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:0.1em;">TOP SONGS TODAY</strong><br>' + rev.top.map(([s,c]) => `${s} <span style="color:#1DB954">(${c}x)</span>`).join('<br>')
     : '';
   renderBlacklist();
+  loadErrors();
+  const es = document.getElementById('err-summary');
+  const el = document.getElementById('err-log');
+  if (es) es.textContent = lastErrors.length ? (lastErrors.length + ' logged \u00b7 newest first') : 'None';
+  if (el) el.innerHTML = lastErrors.length
+    ? lastErrors.map(e => `${e.at.slice(11,19)} <span style=\"color:#ff7070\">${e.code}</span> ${(ERROR_HELP[e.code]||'').slice(0,60)}`).join('<br>')
+    : '<span style=\"color:rgba(255,255,255,0.25)\">No errors logged</span>';
   document.getElementById('settings-overlay').classList.add('open');
 }
 
@@ -1728,7 +1804,11 @@ async function staffDoSearch(q) {
   document.getElementById('staff-results').innerHTML = '';
   try {
     const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10`);
-    if (!r || !r.ok) { document.getElementById('staff-status').textContent = 'Search failed.'; return; }
+    if (!r || !r.ok) {
+      const code = r ? apiErrorCode(r.status) : 'E-NET-01';
+      document.getElementById('staff-status').textContent = 'Search failed \u00b7 ' + code;
+      return;
+    }
     const d = await r.json();
     const tracks = (d.tracks?.items || []).filter(t => !isBlacklisted(t));
     document.getElementById('staff-status').textContent = '';
@@ -1805,11 +1885,13 @@ async function staffFetchQueue() {
 }
 
 // ── ERROR HANDLING ──
-function showError(title, msg) {
+function showError(title, msg, code) {
   const t = document.getElementById('error-title');
   const m = document.getElementById('error-msg');
+  const c = document.getElementById('error-code');
   if (t) t.textContent = title || 'Something went wrong';
   if (m) m.textContent = msg || 'The jukebox ran into a problem.';
+  if (c) c.textContent = code ? ('Error ' + code + ' \u00b7 ' + (ERROR_HELP[code] || '')) : '';
   showScreen('error');
 }
 
@@ -1893,6 +1975,7 @@ async function safeInit() {
   }
 }
 
+loadErrors();
 safeInit();
 buildOsk();
 applyOskMode();
