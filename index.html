@@ -154,6 +154,108 @@
     #screen-search::after { content: ''; position: fixed; bottom: 0; left: 0; right: 0; height: 100px; background: linear-gradient(to top, #080808 0%, transparent 100%); pointer-events: none; z-index: 10; }
 
 
+
+    /* ── STAFF PANEL ── */
+    .staff-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.96);
+      display: none; flex-direction: column; z-index: 500;
+    }
+    .staff-overlay.open { display: flex; }
+
+    .staff-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.5rem 2rem; border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .staff-logo { height: 30px; object-fit: contain; opacity: 0.8; }
+    .staff-title { font-size: 12px; font-weight: 800; letter-spacing: 0.2em; color: rgba(255,255,255,0.3); text-transform: uppercase; }
+    .staff-close { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 24px; padding: 8px 22px; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; font-family: inherit; }
+    .staff-close:hover { background: rgba(255,255,255,0.14); }
+
+    .staff-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* NOW PLAYING SIDE */
+    .staff-left {
+      width: 320px; flex-shrink: 0; display: flex; flex-direction: column;
+      padding: 2rem; gap: 1.25rem; border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    .staff-art {
+      width: 180px; height: 180px; border-radius: 10px; margin: 0 auto;
+      background: rgba(255,255,255,0.05); overflow: hidden; flex-shrink: 0;
+    }
+    .staff-art img { width: 100%; height: 100%; object-fit: cover; }
+    .staff-track { font-size: 18px; font-weight: 800; color: #fff; text-align: center; line-height: 1.2; }
+    .staff-artist { font-size: 14px; color: rgba(255,255,255,0.45); text-align: center; }
+
+    /* CONTROLS */
+    .staff-controls { display: flex; align-items: center; justify-content: center; gap: 1rem; }
+    .ctrl-btn {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 50%; width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #fff; transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.16); }
+    .ctrl-btn.primary { width: 60px; height: 60px; background: #1DB954; border-color: #1DB954; }
+    .ctrl-btn.primary:hover { background: #1ed760; }
+
+    /* VOLUME */
+    .staff-vol { display: flex; align-items: center; gap: 12px; }
+    .staff-vol-icon { font-size: 16px; color: rgba(255,255,255,0.4); flex-shrink: 0; }
+    .staff-vol input[type=range] {
+      flex: 1; accent-color: #1DB954; height: 4px; cursor: pointer;
+    }
+    .staff-vol-val { font-size: 13px; color: rgba(255,255,255,0.4); min-width: 32px; text-align: right; }
+
+    /* SETTINGS BTN */
+    .staff-settings-btn {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 10px; font-size: 13px; color: rgba(255,255,255,0.4);
+      cursor: pointer; font-family: inherit; text-align: center; width: 100%;
+    }
+    .staff-settings-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+    /* SEARCH SIDE */
+    .staff-right {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .staff-search-top {
+      padding: 1.5rem 2rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
+    }
+    .staff-search-input {
+      width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px; padding: 14px 18px; font-size: 18px; color: #fff;
+      font-family: inherit; outline: none;
+    }
+    .staff-search-input:focus { border-color: #1DB954; }
+    .staff-search-input::placeholder { color: rgba(255,255,255,0.2); }
+    .staff-results { flex: 1; overflow-y: auto; list-style: none; padding: 0.5rem 0; }
+    .staff-result {
+      display: flex; align-items: center; gap: 14px; padding: 12px 2rem;
+      cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .staff-result:last-child { border-bottom: none; }
+    .staff-result:hover { background: rgba(255,255,255,0.05); }
+    .staff-thumb { width: 48px; height: 48px; border-radius: 6px; background: rgba(255,255,255,0.06); flex-shrink: 0; overflow: hidden; }
+    .staff-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .staff-info { flex: 1; overflow: hidden; }
+    .staff-song { font-size: 15px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .staff-art-name { font-size: 13px; color: rgba(255,255,255,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .staff-add-btn { width: 36px; height: 36px; border-radius: 50%; background: #1DB954; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .staff-status { font-size: 14px; color: rgba(255,255,255,0.2); text-align: center; padding: 2rem; }
+
+    /* QUEUE LIST */
+    .staff-queue-section { border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; max-height: 200px; overflow-y: auto; }
+    .staff-queue-title { font-size: 10px; font-weight: 800; letter-spacing: 0.2em; color: rgba(255,255,255,0.2); text-transform: uppercase; padding: 1rem 2rem 0.5rem; }
+    .staff-queue-list { list-style: none; }
+    .staff-queue-item { display: flex; align-items: center; gap: 10px; padding: 8px 2rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .staff-queue-item:last-child { border-bottom: none; }
+    .staff-queue-thumb { width: 36px; height: 36px; border-radius: 4px; background: rgba(255,255,255,0.05); flex-shrink: 0; overflow: hidden; }
+    .staff-queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .staff-queue-info { flex: 1; overflow: hidden; }
+    .staff-queue-track { font-size: 13px; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .staff-queue-artist { font-size: 11px; color: rgba(255,255,255,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
     /* ── ERROR SCREEN ── */
     #screen-error { flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center; background: #080808; padding: 2rem; }
     .error-logo { width: 160px; object-fit: contain; opacity: 0.6; }
@@ -190,7 +292,7 @@
     .settings-tap-zone { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 220px; height: 70px; z-index: 200; }
 
     /* ── PIN OVERLAY ── */
-    .pin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none; align-items: center; justify-content: center; z-index: 300; }
+    .pin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none; align-items: center; justify-content: center; z-index: 700; }
     .pin-overlay.open { display: flex; }
     .pin-box { background: #141414; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 2.5rem; width: 340px; text-align: center; }
     .pin-logo { width: 120px; object-fit: contain; margin: 0 auto 1.5rem; display: block; }
@@ -201,7 +303,7 @@
     .pin-cancel { background: none; border: none; color: rgba(255,255,255,0.3); font-size: 15px; cursor: pointer; font-family: inherit; }
 
     /* ── SETTINGS OVERLAY ── */
-    .settings-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 300; flex-direction: column; gap: 1.25rem; }
+    .settings-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 600; flex-direction: column; gap: 1.25rem; }
     .settings-overlay.open { display: flex; }
     .settings-box { background: #141414; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 2.5rem; width: 420px; max-width: 92vw; }
     .settings-logo { width: 120px; object-fit: contain; margin: 0 auto 1.5rem; display: block; opacity: 0.9; }
@@ -287,6 +389,59 @@
   </div>
 </div>
 
+
+
+<!-- STAFF PANEL -->
+<div class="staff-overlay" id="staff-overlay">
+  <div class="staff-header">
+    <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="staff-logo" alt="FUNHUB" />
+    <p class="staff-title">Staff Control</p>
+    <button class="staff-close" onclick="closeStaff()">Close</button>
+  </div>
+
+  <div class="staff-body">
+    <!-- LEFT: now playing + controls -->
+    <div class="staff-left">
+      <div class="staff-art"><img id="staff-art-img" src="" alt="" style="display:none" /></div>
+      <div id="staff-track" class="staff-track">Nothing playing</div>
+      <div id="staff-artist" class="staff-artist"></div>
+
+      <div class="staff-controls">
+        <button class="ctrl-btn" onclick="staffPrev()" title="Previous">
+          <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:white"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="ctrl-btn primary" id="staff-playpause" onclick="staffPlayPause()" title="Play/Pause">
+          <svg id="staff-pp-icon" viewBox="0 0 24 24" style="width:26px;height:26px;fill:white"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="ctrl-btn" onclick="staffNext()" title="Next">
+          <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:white"><path d="M6 18l8.5-6L6 6v12zm2-6 5.5-4v8L8 12zm9-6h-2v12h2z"/></svg>
+        </button>
+      </div>
+
+      <div class="staff-vol">
+        <span class="staff-vol-icon">🔈</span>
+        <input type="range" min="0" max="100" value="100" id="staff-vol-slider" oninput="staffVolume(this.value)" />
+        <span class="staff-vol-val" id="staff-vol-val">100%</span>
+      </div>
+
+      <button class="staff-settings-btn" onclick="closeStaff(); openSettings();">⚙️ Operator Settings</button>
+    </div>
+
+    <!-- RIGHT: search + queue -->
+    <div class="staff-right">
+      <div class="staff-search-top">
+        <input id="staff-search-input" class="staff-search-input" type="text" placeholder="Search for a song..." autocomplete="off" oninput="staffSearch(this.value)" />
+      </div>
+      <p id="staff-status" class="staff-status"></p>
+      <ul id="staff-results" class="staff-results"></ul>
+
+      <div class="staff-queue-section">
+        <p class="staff-queue-title">Up next</p>
+        <ul id="staff-queue-list" class="staff-queue-list"></ul>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ERROR -->
 <div id="screen-error" class="screen">
@@ -782,7 +937,7 @@ function closePinOverlay() { document.getElementById('pin-overlay').classList.re
 
 function checkPin(val) {
   if (val.length < 4) return;
-  if (val === settingsPin) { closePinOverlay(); openSettings(); }
+  if (val === settingsPin) { closePinOverlay(); openStaff(); }
   else { document.getElementById('pin-error').textContent = 'Incorrect PIN'; document.getElementById('pin-input').value = ''; }
 }
 
@@ -844,6 +999,157 @@ function loadState() {
   } catch(e) { return null; }
 }
 
+
+
+// ── STAFF PANEL ──
+let staffSearchTimer = null;
+let staffPlaying = false;
+
+function openStaff() {
+  document.getElementById('staff-overlay').classList.add('open');
+  staffRefreshState();
+  staffFetchQueue();
+  document.getElementById('staff-search-input').focus();
+}
+
+function closeStaff() {
+  document.getElementById('staff-overlay').classList.remove('open');
+}
+
+async function staffRefreshState() {
+  if (!await ensureToken()) return;
+  try {
+    const r = await api('https://api.spotify.com/v1/me/player');
+    if (!r || r.status !== 200) return;
+    const d = await r.json();
+    staffPlaying = d.is_playing || false;
+    const icon = document.getElementById('staff-pp-icon');
+    if (icon) icon.innerHTML = staffPlaying
+      ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
+      : '<path d="M8 5v14l11-7z"/>';
+    const t = d.item;
+    if (t) {
+      document.getElementById('staff-track').textContent = t.name;
+      document.getElementById('staff-artist').textContent = t.artists.map(a=>a.name).join(', ');
+      const img = document.getElementById('staff-art-img');
+      const art = t.album?.images?.[1]?.url || '';
+      if (art) { img.src = art; img.style.display = 'block'; }
+    }
+    // Volume
+    if (d.device?.volume_percent !== undefined) {
+      const vol = d.device.volume_percent;
+      document.getElementById('staff-vol-slider').value = vol;
+      document.getElementById('staff-vol-val').textContent = vol + '%';
+    }
+  } catch(e) {}
+}
+
+async function staffPlayPause() {
+  if (!await ensureToken()) return;
+  const endpoint = staffPlaying ? 'pause' : 'play';
+  await api(`https://api.spotify.com/v1/me/player/${endpoint}`, { method: 'PUT' });
+  staffPlaying = !staffPlaying;
+  const icon = document.getElementById('staff-pp-icon');
+  if (icon) icon.innerHTML = staffPlaying
+    ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
+    : '<path d="M8 5v14l11-7z"/>';
+  setTimeout(staffRefreshState, 500);
+}
+
+async function staffNext() {
+  if (!await ensureToken()) return;
+  await api('https://api.spotify.com/v1/me/player/next', { method: 'POST' });
+  setTimeout(() => { staffRefreshState(); staffFetchQueue(); }, 700);
+}
+
+async function staffPrev() {
+  if (!await ensureToken()) return;
+  await api('https://api.spotify.com/v1/me/player/previous', { method: 'POST' });
+  setTimeout(staffRefreshState, 700);
+}
+
+async function staffVolume(val) {
+  document.getElementById('staff-vol-val').textContent = val + '%';
+  if (!await ensureToken()) return;
+  if (spotifyPlayer) {
+    spotifyPlayer.setVolume(parseInt(val) / 100);
+  } else {
+    await api(`https://api.spotify.com/v1/me/player/volume?volume_percent=${val}`, { method: 'PUT' });
+  }
+}
+
+function staffSearch(val) {
+  clearTimeout(staffSearchTimer);
+  if (!val.trim()) {
+    document.getElementById('staff-results').innerHTML = '';
+    document.getElementById('staff-status').textContent = '';
+    return;
+  }
+  document.getElementById('staff-status').textContent = 'Searching...';
+  staffSearchTimer = setTimeout(() => staffDoSearch(val.trim()), 350);
+}
+
+async function staffDoSearch(q) {
+  if (!await ensureToken()) return;
+  document.getElementById('staff-results').innerHTML = '';
+  try {
+    const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10`);
+    if (!r || !r.ok) { document.getElementById('staff-status').textContent = 'Search failed.'; return; }
+    const d = await r.json();
+    const tracks = d.tracks?.items || [];
+    document.getElementById('staff-status').textContent = '';
+    if (!tracks.length) { document.getElementById('staff-status').textContent = 'No results.'; return; }
+    const safe = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    document.getElementById('staff-results').innerHTML = tracks.map(t => {
+      const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
+      return `<li class="staff-result" onclick="staffQueue('${safe(t.uri)}','${safe(t.name)}','${safe(t.artists.map(x=>x.name).join(', '))}','${safe(a)}')">
+        <div class="staff-thumb">${a?`<img src="${a}" alt="">`:''}</div>
+        <div class="staff-info"><div class="staff-song">${t.name}</div><div class="staff-art-name">${t.artists.map(x=>x.name).join(', ')}</div></div>
+        <button class="staff-add-btn" aria-label="Add"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:white"><path d="M8 5v14l11-7z"/></svg></button>
+      </li>`;
+    }).join('');
+  } catch(e) { document.getElementById('staff-status').textContent = 'Search failed.'; }
+}
+
+async function staffQueue(uri, name, artist, art) {
+  if (!await ensureToken()) return;
+  try {
+    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+    const stateR = await api('https://api.spotify.com/v1/me/player');
+    const playing = stateR?.status === 200 ? (await stateR.json())?.is_playing : false;
+    if (playing) {
+      const qurl = `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}` + (did ? `&device_id=${did}` : '');
+      await api(qurl, { method: 'POST' });
+    } else {
+      const playUrl = `https://api.spotify.com/v1/me/player/play` + (did ? `?device_id=${did}` : '');
+      await api(playUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
+    }
+    setTimeout(staffFetchQueue, 1000);
+    setTimeout(staffRefreshState, 800);
+  } catch(e) {}
+}
+
+async function staffFetchQueue() {
+  if (!await ensureToken()) return;
+  try {
+    const r = await api('https://api.spotify.com/v1/me/player/queue');
+    if (!r || !r.ok) return;
+    const d = await r.json();
+    const seen = new Set([d.currently_playing?.id].filter(Boolean));
+    const items = (d.queue || []).filter(t => {
+      if (!t.id || seen.has(t.id)) return false;
+      seen.add(t.id); return true;
+    }).slice(0, 6);
+    const list = document.getElementById('staff-queue-list');
+    list.innerHTML = items.length ? items.map(t => {
+      const a = t.album?.images?.[2]?.url || '';
+      return `<li class="staff-queue-item">
+        <div class="staff-queue-thumb">${a?`<img src="${a}" alt="">`:''}</div>
+        <div class="staff-queue-info"><div class="staff-queue-track">${t.name}</div><div class="staff-queue-artist">${t.artists.map(a=>a.name).join(', ')}</div></div>
+      </li>`;
+    }).join('') : '<li style="padding:0.75rem 2rem;font-size:13px;color:rgba(255,255,255,0.2)">Queue is empty</li>';
+  } catch(e) {}
+}
 
 // ── ERROR HANDLING ──
 function showError(title, msg) {
