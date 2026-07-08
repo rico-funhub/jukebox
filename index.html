@@ -856,7 +856,37 @@ async function initPlayer() {
     sessionStorage.setItem('spotify_device_id', device_id);
     document.getElementById('audio-badge').style.display = 'block';
     api('https://api.spotify.com/v1/me/player', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_ids: [device_id], play: false }) });
-    setTimeout(() => { sdkReady = true; }, 3000);
+
+    // Wait for SDK to settle, then check live state and restore
+    setTimeout(async () => {
+      try {
+        const r = await api('https://api.spotify.com/v1/me/player');
+        if (r?.status === 200) {
+          const d = await r.json();
+          if (d?.is_playing && d?.item) {
+            const t = d.item;
+            const art = t.album?.images?.[0]?.url || null;
+            lastTrackUri = t.uri;
+            document.getElementById('playing-track').textContent = t.name;
+            document.getElementById('playing-artist').textContent = t.artists.map(a=>a.name).join(', ');
+            const img = document.getElementById('art-img');
+            const bg = document.getElementById('playing-bg');
+            if (art) { img.src = art; img.style.display = 'block'; bg.style.backgroundImage = `url(${art})`; }
+            const disc = document.getElementById('disc');
+            disc.classList.remove('slide-in', 'slide-out', 'spinning');
+            void disc.offsetWidth;
+            disc.classList.add('slide-in');
+            setTimeout(() => { disc.classList.remove('slide-in'); disc.classList.add('spinning'); }, 1400);
+            isPlaying = true;
+            showScreen('playing');
+            fetchQueue();
+            saveState(t.name, t.artists.map(a=>a.name).join(', '), art);
+          }
+        }
+      } catch(e) {}
+      // Only enable SDK state changes after restore check
+      sdkReady = true;
+    }, 2500);
   });
   spotifyPlayer.addListener('not_ready', () => {
     deviceId = null; sdkReady = false;
@@ -1451,32 +1481,7 @@ async function init() {
     showScreen('attract');
     startKeepAlive();
 
-    // Restore saved state
-    const saved = loadState();
-    if (saved) {
-      document.getElementById('playing-track').textContent = saved.name;
-      document.getElementById('playing-artist').textContent = saved.artist;
-      const img = document.getElementById('art-img');
-      if (saved.art) { img.src = saved.art; img.style.display = 'block'; document.getElementById('playing-bg').style.backgroundImage = `url(${saved.art})`; }
-      document.getElementById('disc').classList.add('spinning');
-    }
-
-    // Check live state
-    try {
-      const r = await api('https://api.spotify.com/v1/me/player');
-      if (r?.status === 200) {
-        const d = await r.json();
-        if (d?.is_playing && d?.item) {
-          const t = d.item; const art = t.album?.images?.[0]?.url || null;
-          document.getElementById('playing-track').textContent = t.name;
-          document.getElementById('playing-artist').textContent = t.artists.map(a=>a.name).join(', ');
-          const img = document.getElementById('art-img');
-          if (art) { img.src = art; img.style.display = 'block'; document.getElementById('playing-bg').style.backgroundImage = `url(${art})`; }
-          document.getElementById('disc').classList.add('spinning');
-          isPlaying = true; showScreen('playing'); fetchQueue();
-        }
-      }
-    } catch(e) {}
+    // Restore happens after SDK is ready — see initPlayer() ready callback
   } else {
     showScreen('auth');
   }
