@@ -689,7 +689,7 @@ async function doSearch(q) {
           <div class="search-track">${t.name}</div>
           <div class="search-artist">${t.artists.map(a=>a.name).join(', ')}</div>
         </div>
-        <button class="search-add-btn" aria-label="Add">+</button>
+        <button class="search-add-btn" aria-label="Play"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:white"><path d="M8 5v14l11-7z"/></svg></button>
       </li>`;
     }).join('');
   } catch(e) {
@@ -741,16 +741,15 @@ async function queueTrack(uri, name, artist, art) {
       if (!state?.is_playing) shouldStart = true;
     }
 
-    if (shouldStart && did) {
-      await fetch('https://api.spotify.com/v1/me/player', {
+    if (shouldStart) {
+      // Play the track directly when nothing is active
+      const playBody = did
+        ? JSON.stringify({ uris: [uri], device_id: did })
+        : JSON.stringify({ uris: [uri] });
+      await fetch('https://api.spotify.com/v1/me/player/play' + (did ? `?device_id=${did}` : ''), {
         method: 'PUT',
         headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_ids: [did], play: true })
-      });
-      await new Promise(r => setTimeout(r, 800));
-      await fetch('https://api.spotify.com/v1/me/player/next', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + accessToken }
+        body: playBody
       });
     }
 
