@@ -248,8 +248,24 @@
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="settings-logo" alt="FUNHUB" />
     <p class="settings-title">Settings</p>
     <div class="settings-row">
-      <div class="settings-label">Credits<small id="settings-credits-count">0 credits loaded</small></div>
+      <div class="settings-label">Credits loaded<small id="settings-credits-count">0 credits</small></div>
       <button class="settings-btn danger" onclick="settingsClearCredits()">Clear</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Credits per tap<small>How many credits one card tap adds</small></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="settings-btn" onclick="adjustCpt(-1)" style="padding:8px 14px;font-size:18px;">−</button>
+        <span id="cpt-display" style="font-size:18px;font-weight:700;min-width:24px;text-align:center;">1</span>
+        <button class="settings-btn" onclick="adjustCpt(1)" style="padding:8px 14px;font-size:18px;">+</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Credits per song<small>How many credits one request costs</small></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="settings-btn" onclick="adjustCps(-1)" style="padding:8px 14px;font-size:18px;">−</button>
+        <span id="cps-display" style="font-size:18px;font-weight:700;min-width:24px;text-align:center;">1</span>
+        <button class="settings-btn" onclick="adjustCps(1)" style="padding:8px 14px;font-size:18px;">+</button>
+      </div>
     </div>
     <div class="settings-row">
       <div class="settings-label">Queue<small>Plays September &amp; clears queue</small></div>
@@ -507,7 +523,7 @@ async function queueTrack(uri, name, artist, art) {
     }
 
     playedUris.add(uri);
-    credits = Math.max(0, credits - 1);
+    credits = Math.max(0, credits - creditsPerSong);
     closeSplit();
     if (currentScreen === 'search') closeSearch();
     showScreen('playing');
@@ -591,7 +607,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 't' && e.key !== 'T') return;
   e.preventDefault();
   coinSound();
-  credits++;
+  credits += creditsPerTap;
   document.getElementById('credits-text').textContent = credits === 1 ? '1 credit' : credits + ' credits';
   document.getElementById('credits-badge').style.display = 'flex';
   if (isPlaying) { openSplit(); }
@@ -602,6 +618,8 @@ document.addEventListener('keydown', e => {
 // ── SETTINGS ──
 let settingsTaps = 0, settingsTapTimer = null;
 let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
+let creditsPerTap = parseInt(localStorage.getItem('jukebox_credits_per_tap') || '1');
+let creditsPerSong = parseInt(localStorage.getItem('jukebox_credits_per_song') || '1');
 
 function handleSettingsTap() {
   settingsTaps++;
@@ -635,8 +653,22 @@ function checkPin(val) {
   }
 }
 
+function adjustCpt(delta) {
+  creditsPerTap = Math.max(1, creditsPerTap + delta);
+  localStorage.setItem('jukebox_credits_per_tap', creditsPerTap);
+  document.getElementById('cpt-display').textContent = creditsPerTap;
+}
+
+function adjustCps(delta) {
+  creditsPerSong = Math.max(1, creditsPerSong + delta);
+  localStorage.setItem('jukebox_credits_per_song', creditsPerSong);
+  document.getElementById('cps-display').textContent = creditsPerSong;
+}
+
 function openSettings() {
   document.getElementById('settings-credits-count').textContent = credits + ' credits loaded';
+  document.getElementById('cpt-display').textContent = creditsPerTap;
+  document.getElementById('cps-display').textContent = creditsPerSong;
   const start = parseInt(sessionStorage.getItem('session_start') || Date.now());
   const hrs = Math.floor((Date.now() - start) / 3600000);
   const mins = Math.floor(((Date.now() - start) % 3600000) / 60000);
