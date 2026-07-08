@@ -507,8 +507,9 @@
     <div style="display:flex;gap:8px;margin:0.5rem 0 0.5rem;">
       <input id="setup-key-b-input" type="text" inputmode="latin" placeholder="Paste Key B Client ID (optional)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px 18px;font-size:16px;color:#fff;font-family:monospace;outline:none;" />
     </div>
+    <p id="setup-existing-note" style="display:none;font-size:14px;color:#1DB954;background:rgba(29,185,84,0.08);border:1px solid rgba(29,185,84,0.25);border-radius:10px;padding:10px 14px;margin-bottom:0.75rem;">✓ A key is already set for this jukebox. Tap <strong>Continue</strong> to use it, or paste a different one to replace it.</p>
     <p id="setup-error" style="font-size:13px;color:#ff6b6b;min-height:18px;margin-bottom:0.5rem;"></p>
-    <button class="btn-green" style="width:100%;padding:16px;font-size:17px;" onclick="saveSetupKey()">Save &amp; connect</button>
+    <button id="setup-connect-btn" class="btn-green" style="width:100%;padding:16px;font-size:17px;" onclick="saveSetupKey()">Save &amp; connect</button>
 
     <button onclick="toggleSetupGuide()" style="width:100%;margin-top:1.25rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px;font-size:14px;color:rgba(255,255,255,0.7);cursor:pointer;font-family:inherit;text-align:left;">▸ How do I get a key? (step by step)</button>
     <div id="setup-guide" style="display:none;margin-top:0.75rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;font-size:14px;line-height:1.7;color:rgba(255,255,255,0.75);text-align:left;">
@@ -685,7 +686,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.3.2</p>
+<p class="version-badge">v1.3.3</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1085,9 +1086,7 @@ function openSetup() {
   if (a) a.value = keyA || '';
   if (b) b.value = keyB || '';
   const err = document.getElementById('setup-error'); if (err) err.textContent = '';
-  // Reset the connect button in case a prior attempt left it disabled/"Connecting…".
-  const btn = document.querySelector('#screen-setup .btn-green');
-  if (btn) { btn.textContent = 'Save & connect'; btn.disabled = false; }
+  renderSetupState();
   showScreen('setup');
 }
 
@@ -1105,15 +1104,23 @@ function toggleAuthHelp() {
   if (t) t.textContent = (open ? '▸' : '▾') + ' Having issues connecting?';
 }
 
-function saveSetupKey() {
+// Reflect whether a key is already saved: show the "already set" note and switch
+// the button to "Continue" so staff aren't asked to re-paste a key that's present.
+function renderSetupState() {
+  const note = document.getElementById('setup-existing-note');
+  const btn = document.getElementById('setup-connect-btn');
+  const has = !!keyA;
+  if (note) note.style.display = has ? 'block' : 'none';
+  if (btn) { btn.textContent = has ? 'Continue' : 'Save & connect'; btn.disabled = false; }
+}
+
+async function saveSetupKey() {
   // Strip ALL whitespace and invisible characters — a pasted key often carries a
   // stray space, newline, or zero-width char that silently failed the old check.
   const clean = s => (s || '').replace(/[\s\u200B-\u200D\uFEFF]/g, '');
   const a = clean(document.getElementById('setup-key-input').value);
   const b = clean(document.getElementById('setup-key-b-input').value);
   const err = document.getElementById('setup-error');
-  // Permissive: a Spotify Client ID is ~32 hex chars, but don't hard-reject a
-  // valid key over a format guess. Only block if it's clearly not an ID.
   const looksLikeId = v => /^[0-9a-zA-Z]{20,64}$/.test(v);
   const fail = m => { if (err) { err.textContent = m; err.style.fontSize = '15px'; err.style.fontWeight = '700'; } alert(m); };
 
@@ -1121,14 +1128,27 @@ function saveSetupKey() {
   if (!looksLikeId(a)) { fail('Key A doesn\'t look like a Client ID. Copy it again from the Spotify dashboard (it\'s ~32 letters and numbers, no spaces).'); return; }
   if (b && !looksLikeId(b)) { fail('Key B doesn\'t look like a Client ID. Clear it or paste it again.'); return; }
 
+  // Did the active key actually change? (new key, or was previously on B)
+  const keyChanged = (a !== keyA) || (activeKey !== 'A');
   keyA = a; keyB = b; activeKey = 'A';
   localStorage.setItem('jukebox_key_a', a);
   localStorage.setItem('jukebox_key_b', b);
   localStorage.setItem('jukebox_active_key', 'A');
   if (err) err.textContent = '';
-  // Visible feedback before the redirect so it never feels like "nothing happened".
-  const btn = document.querySelector('#screen-setup .btn-green');
+
+  const btn = document.getElementById('setup-connect-btn');
   if (btn) { btn.textContent = 'Connecting…'; btn.disabled = true; }
+
+  // If the key is unchanged and we already have a valid Spotify session, skip the
+  // pointless re-login that was stalling — go straight into the jukebox.
+  if (!keyChanged && await ensureToken()) {
+    postAuthSetup();
+    showScreen(outOfService ? 'oos' : 'attract');
+    return;
+  }
+  // New/changed key: any existing token belongs to the old Client ID — drop it,
+  // then do a fresh Spotify login.
+  if (keyChanged) clearTokens();
   startAuth();
 }
 
@@ -2709,12 +2729,12 @@ async function init() {
     clearTokens();
     outOfService = false;
     closedByStaff = false;
-    showScreen(haveKey() ? 'auth' : 'setup');
+    if (haveKey()) { showScreen('auth'); } else { renderSetupState(); showScreen('setup'); }
     return;
   }
 
   // No key yet -> first-run setup before anything else.
-  if (!haveKey()) { showScreen('setup'); return; }
+  if (!haveKey()) { renderSetupState(); showScreen('setup'); return; }
 
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code'), state = params.get('state');
