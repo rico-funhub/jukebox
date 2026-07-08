@@ -637,7 +637,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.0.11</p>
+<p class="version-badge">v1.0.12</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -776,7 +776,6 @@ let isPlaying = false, currentScreen = 'auth', sdkReady = false;
 let playbackMode = localStorage.getItem('jukebox_playback') || 'inapp';
 let extDeviceId = localStorage.getItem('jukebox_ext_device_id') || '';
 let extDeviceName = localStorage.getItem('jukebox_ext_device_name') || '';
-let extPollTimer = null;
 let lastTrackUri = null;
 let credits = 0;
 let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
@@ -1119,24 +1118,51 @@ async function fetchDevices() {
   } catch(e) { return []; }
 }
 
-// External mode has no SDK events, so poll me/player to keep now-playing live.
+// External mode has no SDK events. Instead of polling blindly every few seconds,
+// we read state once, then schedule the NEXT read for right when the current
+// song should end (from progress_ms + duration_ms). Between songs: near-zero calls.
+// A slow 30s safety poll runs underneath to catch drift (manual pause/skip on the
+// external device, timing slop) and self-correct.
+let extEndTimer = null, extSafetyTimer = null;
+
 function startExternalPoll() {
   stopExternalPoll();
   if (playbackMode !== 'external') return;
-  extPollTimer = setInterval(async () => {
+  pollExternalOnce();
+  extSafetyTimer = setInterval(() => {
     if (outOfService || playbackMode !== 'external') return;
-    if (!await ensureToken()) return;
-    try {
-      const r = await api('https://api.spotify.com/v1/me/player');
-      if (!r || r.status !== 200) return;
-      const d = await r.json();
-      applyExternalState(d);
-    } catch(e) {}
-  }, 5000);
+    pollExternalOnce();
+  }, 30000);
 }
 
 function stopExternalPoll() {
-  if (extPollTimer) { clearInterval(extPollTimer); extPollTimer = null; }
+  if (extEndTimer) { clearTimeout(extEndTimer); extEndTimer = null; }
+  if (extSafetyTimer) { clearInterval(extSafetyTimer); extSafetyTimer = null; }
+}
+
+async function pollExternalOnce() {
+  if (outOfService || playbackMode !== 'external') return;
+  if (!await ensureToken()) return;
+  try {
+    const r = await api('https://api.spotify.com/v1/me/player');
+    if (!r || r.status !== 200) return;
+    const d = await r.json();
+    applyExternalState(d);
+    scheduleSongEndCheck(d);
+  } catch(e) {}
+}
+
+// Schedule a single check for just after the current song should finish.
+// One timed call per song instead of ~48 blind polls.
+function scheduleSongEndCheck(d) {
+  if (extEndTimer) { clearTimeout(extEndTimer); extEndTimer = null; }
+  if (!d || !d.is_playing || !d.item) return;
+  const remaining = (d.item.duration_ms || 0) - (d.progress_ms || 0);
+  if (remaining <= 0) return;
+  // +1.5s buffer so the next track has actually started when we look.
+  extEndTimer = setTimeout(() => {
+    if (playbackMode === 'external') pollExternalOnce();
+  }, remaining + 1500);
 }
 
 // Mirror a me/player response onto the now-playing UI (external mode's onState).
@@ -1148,7 +1174,11 @@ function applyExternalState(d) {
   }
   isPlaying = d.is_playing || false;
   const t = d.item;
-  if (t.uri === lastTrackUri) return;
+  if (t.uri === lastTrackUri) {
+    const disc = document.getElementById('disc');
+    if (disc) disc.classList.toggle('spinning', isPlaying);
+    return;
+  }
   lastTrackUri = t.uri;
   const art = t.album?.images?.[0]?.url || null;
   document.getElementById('playing-track').textContent = t.name;
@@ -1270,6 +1300,21 @@ function onState(state) {
   disc.classList.add('spinning');
   if (currentScreen !== 'search') showScreen('playing');
   fetchQueue();
+  scheduleInAppQueueRefresh(state);
+}
+
+// When an in-app track starts, schedule ONE queue refresh for when it should end
+// (the next track becomes current then, so up-next needs refreshing). Replaces
+// the old blind 30s poll — SDK events + this timer cover the real change points.
+let inAppQueueTimer = null;
+function scheduleInAppQueueRefresh(state) {
+  if (inAppQueueTimer) { clearTimeout(inAppQueueTimer); inAppQueueTimer = null; }
+  if (!state || state.paused) return;
+  const remaining = (state.duration || 0) - (state.position || 0);
+  if (remaining <= 0) return;
+  inAppQueueTimer = setTimeout(() => {
+    if (playbackMode === 'inapp' && isPlaying && currentScreen === 'playing') fetchQueue();
+  }, remaining + 1500);
 }
 
 // ── QUEUE ──
@@ -2270,15 +2315,15 @@ function postAuthSetup() {
 }
 
 function startKeepAlive() {
-  // Only refresh the up-next list when it's actually on screen: the playing
-  // screen with the split-search panel closed. No point polling behind a search
-  // panel or on the attract loop. Skip entirely while out of service.
+  // Up-next now refreshes on real events: a guest queueing (queueTrack calls
+  // fetchQueue), a track change (onState), and a song-end timer. This is just a
+  // slow safety net to catch anything those miss. Skip while off-screen or OOS.
   setInterval(() => {
-    if (outOfService || !isPlaying) return;
+    if (outOfService || !isPlaying || playbackMode !== 'inapp') return;
     if (currentScreen !== 'playing') return;
     if (document.getElementById('split-panel').classList.contains('open')) return;
     fetchQueue();
-  }, 30000);
+  }, 60000);
   setInterval(() => {
     if (outOfService) return;
     if (!deviceId && accessToken && spotifyPlayer) { try { spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
