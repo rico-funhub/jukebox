@@ -700,11 +700,35 @@ async function doSearch(q) {
 async function queueTrack(uri, name, artist, art) {
   if (!await ensureToken()) return;
   try {
-    const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+    let did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
+
+    // If no device, try to find an available one
+    if (!did) {
+      const devRes = await fetch('https://api.spotify.com/v1/me/player/devices', {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      if (devRes.ok) {
+        const devData = await devRes.json();
+        const active = devData.devices?.find(d => d.is_active) || devData.devices?.[0];
+        if (active) { did = active.id; deviceId = did; }
+      }
+    }
+
+    // Transfer playback to device if needed
+    if (did) {
+      await fetch('https://api.spotify.com/v1/me/player', {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_ids: [did], play: false })
+      });
+      await new Promise(r => setTimeout(r, 500));
+    }
+
     const url = did
       ? `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}&device_id=${did}`
       : `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}`;
-    await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } });
+    const qRes = await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!qRes.ok) throw new Error('Queue failed: ' + qRes.status);
 
     // Track this URI so we know it was user-requested
     queuedUris.add(uri);
