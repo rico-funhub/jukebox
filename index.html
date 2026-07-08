@@ -474,14 +474,14 @@
 <body>
 
 <!-- AUTH -->
-<div id="screen-auth" class="screen active">
+<div id="screen-auth" class="screen">
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="auth-logo" alt="FUNHUB" />
   <p class="auth-sub">Connect Spotify to start the jukebox</p>
   <button class="btn-green" onclick="startAuth()">Connect Spotify</button>
 </div>
 
-<!-- FIRST-RUN SETUP (no key yet) -->
-<div id="screen-setup" class="screen">
+<!-- FIRST-RUN SETUP (no key yet) — also the pre-JS default so a load failure lands here, not on a dead Connect button -->
+<div id="screen-setup" class="screen active">
   <div style="width:100%;max-width:560px;margin:0 auto;padding:2rem 1.5rem;max-height:100vh;overflow-y:auto;">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" style="width:150px;display:block;margin:0 auto 1.5rem;" alt="FUNHUB" />
     <p style="font-size:26px;font-weight:900;text-align:center;margin-bottom:0.5rem;">Set up this jukebox</p>
@@ -669,7 +669,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.1.0</p>
+<p class="version-badge">v1.1.1</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1037,14 +1037,21 @@ function updateCredits() {
 function b64url(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 
 async function startAuth() {
-  if (!haveKey()) { showScreen('setup'); return; }
-  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
-  const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
-  const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
-  sessionStorage.setItem('pkce_verifier', verifier);
-  sessionStorage.setItem('spotify_state', state);
-  const p = new URLSearchParams({ client_id: CLIENT_ID(), response_type: 'code', redirect_uri: REDIRECT_URI, scope: SCOPES, state, code_challenge_method: 'S256', code_challenge: challenge });
-  window.location.href = 'https://accounts.spotify.com/authorize?' + p;
+  // No key yet -> first-run setup. (Should be unreachable from a fresh boot since
+  // init() routes to setup, but guarantees Connect is never a dead tap.)
+  if (!haveKey()) { showScreen('setup'); setTimeout(() => { const i = document.getElementById('setup-key-input'); if (i) i.focus(); }, 100); return; }
+  try {
+    const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+    const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+    const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
+    sessionStorage.setItem('pkce_verifier', verifier);
+    sessionStorage.setItem('spotify_state', state);
+    const p = new URLSearchParams({ client_id: CLIENT_ID(), response_type: 'code', redirect_uri: REDIRECT_URI, scope: SCOPES, state, code_challenge_method: 'S256', code_challenge: challenge });
+    window.location.href = 'https://accounts.spotify.com/authorize?' + p;
+  } catch(e) {
+    logError('E-AUTH-01', 'startAuth failed: ' + String(e));
+    alert('Could not start Spotify sign-in. ' + String(e));
+  }
 }
 
 // ── FIRST-RUN SETUP ──
