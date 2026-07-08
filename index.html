@@ -650,7 +650,6 @@
   <p class="oos-sub" id="oos-sub"></p>
   <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:0.5rem;">
     <button class="oos-unlock" onclick="openPinOverlay('oos')">Staff unlock</button>
-    <button class="oos-unlock" id="oos-fallback-btn" style="display:none;border-color:rgba(29,185,84,0.4);color:#1DB954;" onclick="openPinOverlay('fallback')">Switch to backup key</button>
   </div>
 </div>
 
@@ -669,7 +668,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.1.2</p>
+<p class="version-badge">v1.1.3</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -723,7 +722,7 @@
       <div class="settings-label">Playback<small>In-app player, or send to another Spotify device</small></div>
       <button class="s-btn" id="playback-mode-btn" onclick="togglePlaybackMode()">In-app player</button>
     </div>
-    <p id="playback-lock-note" style="display:none;font-size:12px;color:#D4AF37;margin:-0.5rem 0 0.5rem;padding:0 0.25rem;">🔒 Locked to External: the fallback key has no Premium, so the in-app player can't run.</p>
+    <p id="playback-lock-note" style="display:none;"></p>
     <div class="settings-row" id="device-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
         <div class="settings-label">Target device<small id="device-current"></small></div>
@@ -732,27 +731,14 @@
       <div id="device-list" style="width:100%;"></div>
     </div>
 
-    <!-- APP KEYS -->
-    <div class="settings-row">
-      <div class="settings-label">Active app key<small>Which Spotify app the jukebox runs on</small></div>
-      <button class="s-btn" id="key-slot-btn" onclick="switchKeySlot(activeKeySlot==='fallback'?'main':'fallback')">Main</button>
-    </div>
-    <p id="fallback-active-warn" style="display:none;font-size:12px;color:#D4AF37;margin:-0.5rem 0 0.5rem;padding:0 0.25rem;">⚠️ Running on the FALLBACK key — external playback only, no in-app player.</p>
+    <!-- APP KEY -->
     <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.6rem;">
-      <div class="settings-label">Main app key (Client ID)<small id="main-key-hint">No key set</small></div>
+      <div class="settings-label">App key (Client ID)<small id="main-key-hint">No key set</small></div>
       <div style="display:flex;gap:8px;width:100%;">
         <input id="main-key-input" placeholder="Spotify Client ID" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;font-family:monospace;outline:none;" />
         <button class="s-btn" onclick="saveMainKey()">Save</button>
       </div>
-      <small style="font-size:11px;color:rgba(255,255,255,0.3);">From your Spotify Developer Dashboard. Saving reconnects Spotify. The app's Redirect URI must be https://rico-funhub.github.io/jukebox</small>
-    </div>
-    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.6rem;">
-      <div class="settings-label">Fallback app key (backup)<small id="fallback-key-hint">No fallback key set</small></div>
-      <div style="display:flex;gap:8px;width:100%;">
-        <input id="fallback-key-input" placeholder="Backup Client ID (no Premium)" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;font-family:monospace;outline:none;" />
-        <button class="s-btn" onclick="saveFallbackKey()">Save</button>
-      </div>
-      <small style="font-size:11px;color:rgba(255,255,255,0.3);">A second Spotify app used if the main one is rate-limited. Since it has no Premium, the jukebox switches to External playback automatically. Same Redirect URI required.</small>
+      <small style="font-size:11px;color:rgba(255,255,255,0.3);">From your Spotify Developer Dashboard (must be a Premium account). Saving reconnects Spotify. The app's Redirect URI must be https://rico-funhub.github.io/jukebox</small>
     </div>
     <div class="settings-row">
       <div class="settings-label">On-screen keyboard<small>Built-in keyboard for touchscreens</small></div>
@@ -836,19 +822,11 @@
 })();
 
 // ── CONSTANTS ──
-// Which key is active right now: 'main' or 'fallback'.
-let activeKeySlot = localStorage.getItem('jukebox_key_slot') || 'main';
 // No built-in key: every install enters its own Spotify Client ID (first-run setup).
 let mainClientId = localStorage.getItem('jukebox_main_key') || '';
-// Fallback key: a backup app with NO Premium — no Web Playback SDK — external only.
-let fallbackClientId = localStorage.getItem('jukebox_fallback_key') || '';
 // The Client ID in force this session.
-function CLIENT_ID() {
-  return (activeKeySlot === 'fallback' && fallbackClientId) ? fallbackClientId : mainClientId;
-}
-// Fallback account has no Premium, so in-app playback is impossible — force external.
-function fallbackActive() { return activeKeySlot === 'fallback' && !!fallbackClientId; }
-// Do we have any usable key at all? If not, first-run setup is required.
+function CLIENT_ID() { return mainClientId; }
+// Do we have a usable key? If not, first-run setup is required.
 function haveKey() { return !!CLIENT_ID(); }
 
 const REDIRECT_URI = 'https://rico-funhub.github.io/jukebox';
@@ -1078,9 +1056,7 @@ function saveSetupKey() {
     return;
   }
   mainClientId = v;
-  activeKeySlot = 'main';
   localStorage.setItem('jukebox_main_key', v);
-  localStorage.setItem('jukebox_key_slot', 'main');
   if (err) err.textContent = '';
   // Key in place — go straight into the Spotify connect flow.
   startAuth();
@@ -1170,12 +1146,6 @@ async function api(url, opts = {}) {
     rateLimitUntil = Date.now() + (retry + 1) * 1000;
     enterOutOfService();
   }
-  // 403 while on the fallback key almost always means the backup app has no
-  // Premium and Spotify has blocked the whole API. Don't strand the kiosk.
-  if (r.status === 403 && fallbackActive()) {
-    revertDeadFallback();
-    return r;
-  }
   if (!r.ok) logError(apiErrorCode(r.status), url.split('?')[0]);
   return r;
 }
@@ -1193,8 +1163,6 @@ function enterOutOfService() {
   outOfService = true;
   localStorage.setItem('jukebox_oos', '1');
   logError('E-API-429', 'kiosk out of service');
-  const fb = document.getElementById('oos-fallback-btn');
-  if (fb) fb.style.display = (fallbackClientId && activeKeySlot !== 'fallback') ? 'inline-block' : 'none';
   showScreen('oos');
   scheduleOosProbe();
 }
@@ -1737,7 +1705,6 @@ function checkPin(val) {
   if (val === settingsPin) {
     closePinOverlay();
     if (pinPurpose === 'oos') exitOutOfService();
-    else if (pinPurpose === 'fallback') { localStorage.removeItem('jukebox_oos'); outOfService = false; switchKeySlot('fallback'); }
     else openStaff();
   }
   else { document.getElementById('pin-error').textContent = 'Incorrect PIN'; document.getElementById('pin-input').value = ''; }
@@ -1843,14 +1810,7 @@ function setPlaybackMode(mode) {
 
 function renderPlaybackSettings() {
   const modeBtn = document.getElementById('playback-mode-btn');
-  if (modeBtn) {
-    modeBtn.textContent = playbackMode === 'external' ? 'External device' : 'In-app player';
-    // Fallback account has no Premium — in-app is impossible, lock to external.
-    modeBtn.disabled = fallbackActive();
-    modeBtn.style.opacity = fallbackActive() ? '0.5' : '1';
-  }
-  const lock = document.getElementById('playback-lock-note');
-  if (lock) lock.style.display = fallbackActive() ? 'block' : 'none';
+  if (modeBtn) modeBtn.textContent = playbackMode === 'external' ? 'External device' : 'In-app player';
   const row = document.getElementById('device-row');
   if (row) row.style.display = playbackMode === 'external' ? 'flex' : 'none';
   const name = document.getElementById('device-current');
@@ -1862,7 +1822,6 @@ function renderPlaybackSettings() {
 }
 
 function togglePlaybackMode() {
-  if (fallbackActive()) { alert('The fallback key has no Premium, so in-app playback is not available. Playback stays on External while the fallback key is active.'); return; }
   setPlaybackMode(playbackMode === 'external' ? 'inapp' : 'external');
 }
 
@@ -1905,71 +1864,18 @@ function reconnectForKeyChange() {
 
 function saveMainKey() {
   const v = (document.getElementById('main-key-input').value || '').trim();
-  if (!v) { alert('Enter a Client ID, or leave the fallback in place.'); return; }
+  if (!v) { alert('Enter a Client ID.'); return; }
   mainClientId = v;
   localStorage.setItem('jukebox_main_key', v);
-  if (confirm('Main app key saved. The jukebox must reconnect to Spotify now with the new key. Reconnect?')) reconnectForKeyChange();
+  if (confirm('App key saved. The jukebox must reconnect to Spotify now with the new key. Reconnect?')) reconnectForKeyChange();
   else renderKeySettings();
-}
-
-function saveFallbackKey() {
-  const v = (document.getElementById('fallback-key-input').value || '').trim();
-  fallbackClientId = v;
-  localStorage.setItem('jukebox_fallback_key', v);
-  renderKeySettings();
-}
-
-// Move between main and fallback keys. Both need reconnect (OAuth is bound to
-// the Client ID). NOTE (2026): Spotify requires Premium for ANY Web API access,
-// so a non-Premium fallback app is blocked entirely — see revertDeadFallback().
-function switchKeySlot(slot) {
-  if (slot === 'fallback' && !fallbackClientId) { alert('No fallback key set. Add one first.'); return; }
-  activeKeySlot = slot;
-  localStorage.setItem('jukebox_key_slot', slot);
-  if (slot === 'fallback') {
-    // Fallback assumes no in-app player — default to external.
-    playbackMode = 'external';
-    localStorage.setItem('jukebox_playback', 'external');
-  } else {
-    // Back to main: restore the in-app player so we're not stranded on external
-    // with no device chosen (which silently blocks queueing).
-    playbackMode = 'inapp';
-    localStorage.setItem('jukebox_playback', 'inapp');
-  }
-  const label = slot === 'fallback' ? 'FALLBACK (backup) key' : 'MAIN key';
-  if (confirm('Switching to the ' + label + '. The jukebox must reconnect to Spotify now. Reconnect?')) reconnectForKeyChange();
-  else renderKeySettings();
-}
-
-// If the fallback key is blocked (no Premium -> Spotify 403s the whole API),
-// don't strand the kiosk: revert to the main key + in-app player automatically.
-let revertingFallback = false;
-function revertDeadFallback() {
-  if (revertingFallback) return;
-  revertingFallback = true;
-  logError('E-API-403', 'fallback key blocked (no Premium) — reverting to main');
-  activeKeySlot = 'main';
-  playbackMode = 'inapp';
-  localStorage.setItem('jukebox_key_slot', 'main');
-  localStorage.setItem('jukebox_playback', 'inapp');
-  localStorage.removeItem('jukebox_oos');
-  alert('The backup app has no Spotify Premium, so Spotify blocks it. Reverting to the main app key and reconnecting.');
-  reconnectForKeyChange();
 }
 
 function renderKeySettings() {
-  const slotBtn = document.getElementById('key-slot-btn');
-  if (slotBtn) slotBtn.textContent = activeKeySlot === 'fallback' ? 'Fallback' : 'Main';
   const mainIn = document.getElementById('main-key-input');
   if (mainIn && !mainIn.value) mainIn.value = mainClientId;
   const mainHint = document.getElementById('main-key-hint');
   if (mainHint) mainHint.textContent = mainClientId ? 'Key set' : '⚠️ No key — jukebox cannot connect';
-  const fbIn = document.getElementById('fallback-key-input');
-  if (fbIn && !fbIn.value) fbIn.value = fallbackClientId;
-  const fbHint = document.getElementById('fallback-key-hint');
-  if (fbHint) fbHint.textContent = fallbackClientId ? 'Fallback key set (forces external playback)' : 'No fallback key set';
-  const warn = document.getElementById('fallback-active-warn');
-  if (warn) warn.style.display = fallbackActive() ? 'block' : 'none';
 }
 
 // ── HELP / TROUBLESHOOTING ──
@@ -1982,7 +1888,6 @@ const HELP = {
     <ol style="margin:0.5rem 0 0 1.1rem;">
       <li>Wait a few minutes — it often comes back by itself.</li>
       <li>Still stuck? Tap <strong>Staff unlock</strong> and enter the staff PIN.</li>
-      <li>If there's a <strong>Switch to backup key</strong> button, tap it and enter the PIN — this moves to the backup Spotify app.</li>
     </ol>
     <p style="margin-top:1rem;"><strong>No sound / nothing plays:</strong></p>
     <ol style="margin:0.5rem 0 0 1.1rem;">
@@ -2009,10 +1914,9 @@ const HELP = {
     <ol style="margin:0.5rem 0 0 1.1rem;">
       <li>Screen shows Out of Service. The app is already waiting out Spotify's cooldown and will self-recover.</li>
       <li>To bring it back now: tap <strong>Staff unlock</strong> → PIN. (Only works if the cooldown has actually passed; otherwise it re-locks.)</li>
-      <li>To keep running during a long cooldown: tap <strong>Switch to backup key</strong> → PIN. This loads the fallback Spotify app (separate rate-limit bucket).</li>
-      <li>Because the fallback account has no Premium, playback auto-switches to <strong>External</strong>: open the Spotify desktop app on the location's computer, play any song once so it registers as a device, then settings → Playback → <strong>Choose device</strong> → pick it.</li>
+      <li>Real fix for repeated limits: the Client ID is over Dev-Mode quota. One kiosk on its own Premium account rarely hits this under normal traffic.</li>
     </ol>
-    <p style="margin-top:1rem;"><strong>App keys:</strong> settings → Active app key / Main / Fallback. Client IDs come from the Spotify Developer Dashboard. Every app used <em>must</em> list Redirect URI <code>https://rico-funhub.github.io/jukebox</code>. Changing any key forces a Spotify reconnect (OAuth is bound to the Client ID).</p>
+    <p style="margin-top:1rem;"><strong>App key:</strong> settings → App key. The Client ID comes from the Spotify Developer Dashboard (Premium account required). The app <em>must</em> list Redirect URI <code>https://rico-funhub.github.io/jukebox</code>. Changing the key forces a Spotify reconnect (OAuth is bound to the Client ID).</p>
     <p style="margin-top:1rem;"><strong>First-time setup:</strong> a fresh install has no key and opens the Setup screen. Enter the location's Spotify Client ID (Developer Dashboard → the app → Settings → Client ID). The app's Redirect URI must be <code>https://rico-funhub.github.io/jukebox</code>. There is no shared built-in key — every install owns its own.</p>
     <p style="margin-top:1rem;"><strong>Hard reset:</strong> open <code>?reset=1</code> — clears session, lockout, and returns to the connect screen. Does not wipe saved keys or settings.</p>
     <p style="margin-top:1rem;"><strong>Scaling note:</strong> the rate limit is per Client ID, not per account. Multiple locations on one key share one bucket. Dev Mode allows one Client ID per developer and caps at 5 users. Beyond ~5 sites this needs its own key strategy or a non-Spotify backend.</p>
@@ -2025,8 +1929,7 @@ const HELP = {
       <li style="margin-bottom:0.75rem;"><strong>Free mode</strong> — no card needed; guests pick songs for free. Shows a green FREE PLAY badge. Card taps don't log revenue while on.</li>
       <li style="margin-bottom:0.75rem;"><strong>Playback</strong> — <em>In-app player</em>: audio comes from this kiosk. <em>External device</em>: kiosk sends songs to another Spotify device (desktop app, speaker) and audio plays there.</li>
       <li style="margin-bottom:0.75rem;"><strong>Target device</strong> — (external only) which Spotify device plays. Pick from the list. ⚠️ means none chosen — guests can't play until you pick one.</li>
-      <li style="margin-bottom:0.75rem;"><strong>Active app key</strong> — Main or Fallback Spotify app. Fallback is the backup for when the main one is rate-limited; it forces External playback (no Premium).</li>
-      <li style="margin-bottom:0.75rem;"><strong>Main / Fallback app key</strong> — the Spotify Client IDs. Changing one reconnects Spotify. Each app needs the kiosk's Redirect URI set in Spotify's dashboard.</li>
+      <li style="margin-bottom:0.75rem;"><strong>App key</strong> — the Spotify Client ID the jukebox runs on. Changing it reconnects Spotify. The app needs the kiosk's Redirect URI set in Spotify's dashboard, and a Premium account.</li>
       <li style="margin-bottom:0.75rem;"><strong>Reset queue (September)</strong> — clears the queue and plays one song, a quick "reset to known state".</li>
       <li style="margin-bottom:0.75rem;"><strong>On-screen keyboard</strong> — the built-in touch keyboard. Off = a physical keyboard is used.</li>
       <li style="margin-bottom:0.75rem;"><strong>Coin / card input</strong> — which key/button the card reader sends. Remap if the reader changes.</li>
