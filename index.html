@@ -391,6 +391,17 @@
     .error-retry { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 30px; padding: 14px 36px; font-size: 16px; font-weight: 700; color: #fff; cursor: pointer; font-family: inherit; margin-top: 1rem; }
     .error-retry:hover { background: rgba(255,255,255,0.14); }
 
+    /* ── OUT OF SERVICE ── */
+    #screen-oos { flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center; background: #0a0505; padding: 2rem; }
+    .oos-logo { width: 150px; object-fit: contain; opacity: 0.4; }
+    .oos-icon { font-size: clamp(48px, 8vw, 72px); }
+    .oos-title { font-size: clamp(30px, 5vw, 52px); font-weight: 900; color: #ff7070; letter-spacing: 0.02em; }
+    .oos-msg { font-size: clamp(16px, 2.5vw, 22px); color: rgba(255,255,255,0.5); max-width: 520px; line-height: 1.5; }
+    .oos-staff { font-size: clamp(13px, 1.8vw, 18px); color: #D4AF37; font-weight: 700; letter-spacing: 0.06em; margin-top: 0.25rem; }
+    .oos-sub { font-size: 13px; color: rgba(255,255,255,0.3); margin-top: 0.5rem; }
+    .oos-unlock { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 30px; padding: 12px 30px; font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.5); cursor: pointer; font-family: inherit; margin-top: 1rem; }
+    .oos-unlock:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
     /* ── CREDITS BADGE ── */
     .credits-badge {
       position: fixed; bottom: 1.5rem; right: 1.5rem; display: none;
@@ -600,6 +611,17 @@
   <button class="error-retry" onclick="retryFromError()">Try again</button>
 </div>
 
+<!-- OUT OF SERVICE (rate-limit lockout) -->
+<div id="screen-oos" class="screen">
+  <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="oos-logo" alt="FUNHUB" />
+  <div class="oos-icon">🎵</div>
+  <p class="oos-title">Out of Service</p>
+  <p class="oos-msg">The jukebox is taking a short break and will be back automatically.</p>
+  <p class="oos-staff">⚠️ Please ask a staff member for help</p>
+  <p class="oos-sub" id="oos-sub"></p>
+  <button class="oos-unlock" onclick="openPinOverlay('oos')">Staff unlock</button>
+</div>
+
 <!-- CREDITS -->
 <div class="credits-badge" id="credits-badge"><div class="credits-dot"></div><span id="credits-text"></span></div>
 
@@ -615,7 +637,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.0.9</p>
+<p class="version-badge">v1.0.10</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -871,6 +893,9 @@ function updateAttractText() {
 
 // ── SCREENS ──
 function showScreen(id) {
+  // While out of service, nothing may leave the lockout except the lockout logic
+  // itself (which shows 'oos') or a hard reset (which shows 'auth').
+  if (outOfService && id !== 'oos' && id !== 'auth') return;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + id).classList.add('active');
   currentScreen = id;
@@ -1000,9 +1025,62 @@ async function api(url, opts = {}) {
   if (r.status === 429) {
     const retry = parseInt(r.headers.get('Retry-After') || '30');
     rateLimitUntil = Date.now() + (retry + 1) * 1000;
+    enterOutOfService();
   }
   if (!r.ok) logError(apiErrorCode(r.status), url.split('?')[0]);
   return r;
+}
+
+// ── OUT OF SERVICE LOCKOUT ──
+// A 429 puts the whole kiosk out of service. Guests can't clear it (no retry
+// button, survives reload). Back in service only two ways:
+//   1. auto — a background probe after the cooldown confirms the API is back
+//   2. staff PIN — the unlock button on the OOS screen
+let outOfService = localStorage.getItem('jukebox_oos') === '1';
+let oosProbeTimer = null;
+
+function enterOutOfService() {
+  if (outOfService) return;
+  outOfService = true;
+  localStorage.setItem('jukebox_oos', '1');
+  logError('E-API-429', 'kiosk out of service');
+  showScreen('oos');
+  scheduleOosProbe();
+}
+
+function exitOutOfService() {
+  outOfService = false;
+  localStorage.removeItem('jukebox_oos');
+  rateLimitUntil = 0;
+  if (oosProbeTimer) { clearTimeout(oosProbeTimer); oosProbeTimer = null; }
+  // Reconnect playback and go back to the attract loop.
+  if (spotifyPlayer) { try { spotifyPlayer.disconnect(); } catch(e) {} }
+  setTimeout(initPlayer, 500);
+  showScreen('attract');
+}
+
+// Wait out the cooldown, then quietly probe the API. If it answers, we're back.
+// If it 429s again, api() re-arms the cooldown and we reschedule.
+function scheduleOosProbe() {
+  if (oosProbeTimer) clearTimeout(oosProbeTimer);
+  const wait = Math.max(rateLimitUntil - Date.now(), 5000) + 2000;
+  const sub = document.getElementById('oos-sub');
+  if (sub) sub.textContent = '';
+  oosProbeTimer = setTimeout(async () => {
+    if (!outOfService) return;
+    // Bypass the cooldown gate for this one probe by calling fetch directly.
+    if (!await ensureToken()) { scheduleOosProbe(); return; }
+    try {
+      const r = await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + accessToken } });
+      if (r.status === 429) {
+        const retry = parseInt(r.headers.get('Retry-After') || '30');
+        rateLimitUntil = Date.now() + (retry + 1) * 1000;
+        scheduleOosProbe();
+      } else {
+        exitOutOfService();
+      }
+    } catch(e) { scheduleOosProbe(); }
+  }, wait);
 }
 
 // ── COIN SOUND ──
@@ -1154,8 +1232,9 @@ async function queueTrack(uri, name, artist, art) {
   if (!await ensureToken()) return;
   try {
     const did = deviceId || sessionStorage.getItem('spotify_device_id') || '';
-    const stateR = await api('https://api.spotify.com/v1/me/player');
-    const playing = stateR?.status === 200 ? (await stateR.json())?.is_playing : false;
+    // Use the playback state we already track from the SDK, instead of an extra
+    // me/player call every song. Halves the requests per song request.
+    const playing = isPlaying;
 
     async function attempt() {
       if (playing) {
@@ -1356,7 +1435,10 @@ function handleSettingsTap() {
   if (settingsTaps >= 5) { settingsTaps = 0; openPinOverlay(); }
 }
 
-function openPinOverlay() {
+let pinPurpose = 'staff';
+
+function openPinOverlay(purpose) {
+  pinPurpose = purpose || 'staff';
   document.getElementById('pin-overlay').classList.add('open');
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').textContent = '';
@@ -1367,7 +1449,11 @@ function closePinOverlay() { document.getElementById('pin-overlay').classList.re
 
 function checkPin(val) {
   if (val.length < 4) return;
-  if (val === settingsPin) { closePinOverlay(); openStaff(); }
+  if (val === settingsPin) {
+    closePinOverlay();
+    if (pinPurpose === 'oos') exitOutOfService();
+    else openStaff();
+  }
   else { document.getElementById('pin-error').textContent = 'Incorrect PIN'; document.getElementById('pin-input').value = ''; }
 }
 
@@ -1713,8 +1799,14 @@ let attractBgArts = [];
 let attractBgIdx = 0;
 
 async function loadAttractArts() {
-  // Cached: only hit Spotify once per session
+  if (outOfService) return;
+  // Cached in memory for this session
   if (attractBgArts.length) { rotateAttractBg(); return; }
+  // Cached across reloads: persisted URLs mean zero API calls on restart
+  try {
+    const saved = JSON.parse(localStorage.getItem('jukebox_attract_arts') || '[]');
+    if (saved.length) { attractBgArts = saved; rotateAttractBg(); return; }
+  } catch(e) {}
   // Get top songs from revenue
   const rev = getRevenue();
   const allSongs = {};
@@ -1723,14 +1815,14 @@ async function loadAttractArts() {
       allSongs[k] = (allSongs[k] || 0) + v;
     });
   });
-  const topKeys = Object.entries(allSongs).sort((a,b) => b[1]-a[1]).slice(0,10).map(e => e[0]);
+  const topKeys = Object.entries(allSongs).sort((a,b) => b[1]-a[1]).slice(0,5).map(e => e[0]);
 
   if (!topKeys.length) return;
 
-  // Search Spotify for each top song to get album art
+  // Search Spotify for each top song to get album art (capped at 5 — enough for a bg)
   if (!await ensureToken()) return;
   const arts = [];
-  for (const key of topKeys.slice(0, 10)) {
+  for (const key of topKeys) {
     try {
       const r = await api(`https://api.spotify.com/v1/search?q=${encodeURIComponent(key)}&type=track&limit=1`);
       if (!r || !r.ok) continue;
@@ -1740,6 +1832,7 @@ async function loadAttractArts() {
     } catch(e) {}
   }
   attractBgArts = arts;
+  try { localStorage.setItem('jukebox_attract_arts', JSON.stringify(arts)); } catch(e) {}
   if (arts.length) rotateAttractBg();
 }
 
@@ -2018,15 +2111,29 @@ function postAuthSetup() {
 }
 
 function startKeepAlive() {
-  setInterval(() => { if (isPlaying) fetchQueue(); }, 20000);
+  // Only refresh the up-next list when it's actually on screen: the playing
+  // screen with the split-search panel closed. No point polling behind a search
+  // panel or on the attract loop. Skip entirely while out of service.
   setInterval(() => {
+    if (outOfService || !isPlaying) return;
+    if (currentScreen !== 'playing') return;
+    if (document.getElementById('split-panel').classList.contains('open')) return;
+    fetchQueue();
+  }, 30000);
+  setInterval(() => {
+    if (outOfService) return;
     if (!deviceId && accessToken && spotifyPlayer) { try { spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
   }, 60000);
 }
 
 // ── INIT ──
 async function init() {
-  if (new URLSearchParams(window.location.search).get('reset') === '1') { showScreen('auth'); return; }
+  if (new URLSearchParams(window.location.search).get('reset') === '1') {
+    localStorage.removeItem('jukebox_oos');
+    outOfService = false;
+    showScreen('auth');
+    return;
+  }
 
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code'), state = params.get('state');
@@ -2036,9 +2143,10 @@ async function init() {
   }
 
   if (await ensureToken()) {
-    showScreen('attract');
     postAuthSetup();
-
+    // Was the kiosk locked out before reload? Stay locked; a guest can't refresh out of it.
+    if (outOfService) { showScreen('oos'); scheduleOosProbe(); }
+    else showScreen('attract');
     // Restore happens after SDK is ready — see initPlayer() ready callback
   } else {
     showScreen('auth');
