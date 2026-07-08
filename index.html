@@ -28,7 +28,7 @@
     /* NOW PLAYING */
     #screen-playing { flex-direction: row; align-items: center; justify-content: center; position: relative; overflow: hidden; }
     .playing-bg { position: absolute; inset: 0; background-size: cover; background-position: center; filter: blur(48px) brightness(0.2); transform: scale(1.15); z-index: 0; }
-    .playing-left { flex: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 2rem; gap: 1.25rem; height: 100vh; border-right: 1px solid rgba(255,255,255,0.06); position: relative; z-index: 1; }
+    .playing-left { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 2rem; gap: 1.25rem; height: 100vh; border-right: 1px solid rgba(255,255,255,0.06); position: relative; z-index: 1; }
     .playing-logo { width: 140px; opacity: 0.85; object-fit: contain; }
     .now-badge { font-size: 12px; font-weight: 700; letter-spacing: 0.2em; color: #1DB954; text-transform: uppercase; }
     .disc-wrapper { position: relative; width: min(300px, 35vw); height: min(300px, 35vw); }
@@ -44,7 +44,7 @@
     @keyframes fadepulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
     /* QUEUE */
-    .playing-right { width: 40%; max-width: 420px; height: 100vh; display: flex; flex-direction: column; padding: 2.5rem 1.75rem; overflow-y: auto; position: relative; z-index: 1; }
+    .playing-right { width: 50%; height: 100vh; display: flex; flex-direction: column; padding: 2.5rem 1.75rem; overflow-y: auto; position: relative; z-index: 1; }
     .queue-logo { width: 110px; opacity: 0.5; object-fit: contain; margin-bottom: 1.5rem; }
     .queue-heading { font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 1rem; }
     .queue-list { list-style: none; }
@@ -59,7 +59,7 @@
     .queue-empty { font-size: 13px; color: rgba(255,255,255,0.15); padding: 0.5rem 0; }
 
     /* SPLIT SEARCH */
-    .split-panel { width: 40%; max-width: 420px; height: 100vh; display: none; flex-direction: column; position: relative; z-index: 1; border-left: 1px solid rgba(255,255,255,0.06); }
+    .split-panel { width: 50%; height: 100vh; display: none; flex-direction: column; position: relative; z-index: 1; border-left: 1px solid rgba(255,255,255,0.06); }
     .split-panel.open { display: flex; }
     .split-top { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
     .split-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px 16px; font-size: 17px; color: #fff; font-family: inherit; outline: none; }
@@ -168,7 +168,7 @@
 
 <div class="credits-badge" id="credits-badge"><div class="credits-dot"></div><span id="credits-text">0 credits</span></div>
 <div class="lang-switcher">
-  <button class="lang-btn active" data-lang="en" onclick="setLang('en')" title="English">🇨🇦</button>
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')" title="English">🇺🇸</button>
   <button class="lang-btn" data-lang="fr" onclick="setLang('fr')" title="Français">🇫🇷</button>
   <button class="lang-btn" data-lang="es" onclick="setLang('es')" title="Español">🇲🇽</button>
 </div>
@@ -380,9 +380,11 @@ async function fetchQueue() {
       seen.add(t.id);
       seen.add(t.uri);
       return true;
-    }).slice(0, -1).slice(0, 8);
+    }).slice(0, 8);
+    // Hide last item (Spotify autoplay ghost)
+    const display = items.length > 1 ? items.slice(0, -1) : items;
     const list = document.getElementById('queue-list');
-    list.innerHTML = items.length ? items.map((t,i) => {
+    list.innerHTML = display.length ? display.map((t,i) => {
       const a = t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || '';
       return `<li class="queue-item"><span class="queue-num">${i+1}</span><div class="queue-thumb">${a?`<img src="${a}" alt="">`:''}  </div><div class="queue-info"><div class="queue-track">${t.name}</div><div class="queue-artist">${t.artists.map(a=>a.name).join(', ')}</div></div></li>`;
     }).join('') : '<li class="queue-empty">Queue is empty</li>';
