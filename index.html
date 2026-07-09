@@ -575,7 +575,7 @@
 </div>
 
 <!-- NOW PLAYING -->
-<div id="screen-playing" class="screen" onclick="if(canPick())openSongPicker()">
+<div id="screen-playing" class="screen" onclick="attractTap()">
   <div class="playing-bg" id="playing-bg"></div>
 
   <div class="playing-left">
@@ -727,7 +727,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.10.0</p>
+<p class="version-badge">v1.11.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -736,7 +736,7 @@
 <div class="pin-overlay" id="pin-overlay">
   <div class="pin-box">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="pin-logo" alt="FUNHUB" />
-    <p class="pin-title">Staff Access</p>
+    <p class="pin-title" id="pin-title">Staff Access</p>
     <input class="pin-input" id="pin-input" type="password" maxlength="4" placeholder="••••" inputmode="none" oninput="checkPin(this.value)" autocomplete="off" />
     <p class="pin-error" id="pin-error"></p>
     <div class="pin-pad">
@@ -770,6 +770,10 @@
     <div class="settings-row">
       <div class="settings-label">Free mode<small>No card needed — guests pick songs for free</small></div>
       <button class="s-btn" id="free-toggle-btn" onclick="toggleFreeMode()">Off</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Tap screen to play<small>A tap on the idle screen adds one credit (touch-to-play)</small></div>
+      <button class="s-btn" id="tap-credit-btn" onclick="toggleTapCredit()">Off</button>
     </div>
     <div class="settings-row">
       <div class="settings-label">Free-play cooldown<small>Wait between free songs (0 = off). Free mode only.</small></div>
@@ -1021,6 +1025,9 @@ let freeMode = localStorage.getItem('jukebox_free') === 'on';
 let freePlayCooldown = parseInt(localStorage.getItem('jukebox_free_cooldown') || '30');
 let freeCooldownUntil = 0;
 let cooldownTimer = null;
+// When on, tapping the idle screen inserts a credit (touch-to-play), instead of
+// the screen doing nothing until a card/coin. Off by default (paid venues).
+let tapCredit = localStorage.getItem('jukebox_tap_credit') === 'on';
 // Hide explicit tracks from search. Defaults ON (family venue) unless a value is saved.
 let hideExplicit = localStorage.getItem('jukebox_hide_explicit') !== 'off';
 let settingsTaps = 0, settingsTapTimer = null;
@@ -1155,7 +1162,9 @@ function tickCooldown() {
 }
 
 function attractTap() {
-  if (canPick()) openSongPicker();
+  if (canPick()) { openSongPicker(); return; }
+  // No credit yet: if touch-to-play is enabled, a tap acts as a coin.
+  if (tapCredit && !cooldownActive()) triggerCoin();
 }
 
 // Single source of truth for letting a guest pick a song.
@@ -1174,7 +1183,7 @@ function updateAttractText() {
   const t = T[lang];
   const tapEl = document.getElementById('attract-tap');
   if (tapEl) {
-    const canGo = canPick() && !isPlaying;
+    const canGo = (canPick() || tapCredit) && !isPlaying;
     tapEl.textContent = canGo ? t.tapPlay : t.tap;
     tapEl.classList.toggle('tap-to-play', canGo);
   }
@@ -2017,9 +2026,10 @@ function openPinOverlay(purpose) {
   document.getElementById('pin-overlay').classList.add('open');
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').textContent = '';
+  const title = document.getElementById('pin-title'); if (title) title.textContent = 'Staff Access';
 }
 
-function closePinOverlay() { document.getElementById('pin-overlay').classList.remove('open'); }
+function closePinOverlay() { document.getElementById('pin-overlay').classList.remove('open'); if (pinPurpose === 'setpin') pinPurpose = 'staff'; }
 
 // Touch numpad — the tablet has no physical keyboard, so PIN entry is all on-screen.
 function pinKey(d) {
@@ -2035,15 +2045,38 @@ function pinDel() {
   document.getElementById('pin-error').textContent = '';
 }
 
+let newPinStage = 'first', newPinFirst = '';
+
 function checkPin(val) {
   if (val.length < 4) return;
+  const title = document.getElementById('pin-title');
+  const errEl = document.getElementById('pin-error');
+  const inp = document.getElementById('pin-input');
+  // Setting a new PIN (from Change PIN) — enter twice to confirm, all on the numpad.
+  if (pinPurpose === 'setpin') {
+    if (newPinStage === 'first') {
+      newPinFirst = val; newPinStage = 'confirm';
+      inp.value = ''; if (title) title.textContent = 'Re-enter to confirm';
+      return;
+    }
+    if (val === newPinFirst) {
+      settingsPin = val; localStorage.setItem('jukebox_pin', val);
+      closePinOverlay(); pinPurpose = 'staff';
+      alert('PIN updated.');
+    } else {
+      if (errEl) errEl.textContent = 'PINs didn\'t match — start again';
+      newPinStage = 'first'; newPinFirst = ''; inp.value = '';
+      if (title) title.textContent = 'Enter a new 4-digit PIN';
+    }
+    return;
+  }
   if (val === settingsPin) {
     closePinOverlay();
     if (pinPurpose === 'oos') attemptReopen();
     else if (pinPurpose === 'switchkey') switchActiveKey(activeKey === 'A' ? 'B' : 'A');
     else openStaff();
   }
-  else { document.getElementById('pin-error').textContent = 'Incorrect PIN'; document.getElementById('pin-input').value = ''; }
+  else { if (errEl) errEl.textContent = 'Incorrect PIN'; inp.value = ''; }
 }
 
 function openSettings() {
@@ -2051,6 +2084,7 @@ function openSettings() {
   renderCoinLines();
   const otb = document.getElementById('osk-toggle-btn'); if (otb) otb.textContent = oskEnabled ? 'On' : 'Off';
   const ftb = document.getElementById('free-toggle-btn'); if (ftb) ftb.textContent = freeMode ? 'On' : 'Off';
+  const tcb = document.getElementById('tap-credit-btn'); if (tcb) tcb.textContent = tapCredit ? 'On' : 'Off';
   const etb = document.getElementById('explicit-toggle-btn'); if (etb) etb.textContent = hideExplicit ? 'On' : 'Off';
   const fcv = document.getElementById('free-cooldown-val'); if (fcv) fcv.textContent = cooldownLabel(freePlayCooldown);
   renderPlaybackSettings();
@@ -2094,7 +2128,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_free_cooldown','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_tap_credit','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_free_cooldown','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
@@ -2174,6 +2208,14 @@ function toggleOskSetting() {
 function updateFreeBadge() {
   const b = document.getElementById('free-badge');
   if (b) b.classList.toggle('on', freeMode && currentScreen !== 'auth');
+}
+
+function toggleTapCredit() {
+  tapCredit = !tapCredit;
+  localStorage.setItem('jukebox_tap_credit', tapCredit ? 'on' : 'off');
+  const btn = document.getElementById('tap-credit-btn');
+  if (btn) btn.textContent = tapCredit ? 'On' : 'Off';
+  updateAttractText();
 }
 
 function toggleFreeMode() {
@@ -2542,9 +2584,12 @@ function adjustCoinCredits(i, delta) {
 }
 
 function settingsChangePin() {
-  const p = prompt('New 4-digit PIN:');
-  if (p && /^\d{4}$/.test(p)) { settingsPin = p; localStorage.setItem('jukebox_pin', p); alert('PIN updated.'); }
-  else if (p) alert('PIN must be exactly 4 digits.');
+  pinPurpose = 'setpin';
+  newPinStage = 'first'; newPinFirst = '';
+  document.getElementById('pin-overlay').classList.add('open');
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').textContent = '';
+  const title = document.getElementById('pin-title'); if (title) title.textContent = 'Enter a new 4-digit PIN';
 }
 
 function settingsDisconnect() {
@@ -2677,7 +2722,7 @@ function buildOsk() {
   updateOskCase();
 
   // Tapping an input brings the on-screen keyboard back after hide.
-  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name'].forEach(id => {
+  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name', 'blacklist-input', 'staff-search-input'].forEach(id => {
     const inp = document.getElementById(id);
     if (!inp) return;
     inp.addEventListener('click', () => { if (oskEnabled) showOsk(id); });
@@ -2729,7 +2774,7 @@ function applyOskMode() {
   // OSK on: suppress the native tablet keyboard with inputmode=none, but keep the
   // field fully live so programmatic input + oninput still fire (readonly would kill them).
   // OSK off: normal field, native/PC keyboard types directly.
-  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name'].forEach(id => {
+  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name', 'blacklist-input', 'staff-search-input'].forEach(id => {
     const inp = document.getElementById(id);
     if (!inp) return;
     if (oskEnabled) inp.setAttribute('inputmode', 'none');
@@ -2741,7 +2786,9 @@ function oskFire(inp) {
   // Call the right search directly — reliable even if the input event is swallowed.
   if (inp.id === 'search-input') liveSearch(inp.value);
   else if (inp.id === 'split-input') splitSearch(inp.value);
+  else if (inp.id === 'staff-search-input') staffSearch(inp.value);
   else if (inp.id.startsWith('coin-name-')) { const i = parseInt(inp.id.replace('coin-name-','')); if (coinLines[i]) { coinLines[i].name = inp.value; saveCoinLines(); } }
+  // blacklist-input needs no live action — it's applied via the Block button.
 }
 
 function oskType(char) {
