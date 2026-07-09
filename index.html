@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.28.0</p>
+<p class="version-badge">v1.29.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -3497,16 +3497,9 @@ function startKeepAlive() {
     if (outOfService) return;
     if (!deviceId && accessToken && spotifyPlayer) { try { spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
   }, 60000);
-  // Keep the up-next in sync with Spotify's ACTUAL queue while the playing screen is shown,
-  // so songs added from another Spotify app (external) appear here too. Only runs on the
-  // playing screen (not attract/idle) to keep the call rate modest.
-  setInterval(() => {
-    if (outOfService) return;
-    if (document.hidden) return;
-    if (currentScreen !== 'playing') return;
-    if (document.getElementById('split-panel')?.classList.contains('open')) return;
-    fetchQueue();
-  }, 120000);
+  // Up-next is refreshed purely by the play event — on every track change (in-app: onState;
+  // external: the song-end poll -> applyExternalState) and each song's end timer. No blind
+  // queue polling. An externally-queued song shows up when the current track turns over.
 }
 
 // ── INIT ──
