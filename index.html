@@ -716,7 +716,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.5.1</p>
+<p class="version-badge">v1.6.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -861,6 +861,19 @@
         <button class="s-btn" onclick="addToBlacklist(document.getElementById('blacklist-input').value.trim()); document.getElementById('blacklist-input').value=''; renderBlacklist();">Block</button>
       </div>
       <div id="blacklist-items" style="width:100%;"></div>
+    </div>
+
+    <!-- TECHNICIAN -->
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;border-top:1px solid rgba(255,255,255,0.12);padding-top:1rem;">
+      <div class="settings-label">🔧 Technician<small>Diagnostics & backup</small></div>
+      <div style="display:flex;gap:8px;width:100%;flex-wrap:wrap;">
+        <button class="s-btn" onclick="testConnection()">🔌 Test connection</button>
+        <button class="s-btn" onclick="exportSettings()">⬇️ Export settings</button>
+        <button class="s-btn" onclick="document.getElementById('restore-file').click()">⬆️ Restore settings</button>
+        <input type="file" id="restore-file" accept="application/json,.json" style="display:none;" onchange="restoreSettings(this)" />
+      </div>
+      <p id="test-conn-result" style="width:100%;font-size:13px;color:rgba(255,255,255,0.5);min-height:18px;"></p>
+      <small style="font-size:11px;color:rgba(255,255,255,0.3);line-height:1.5;">Export saves a settings file (keys, nicknames, PIN, toggles) to clone this kiosk or back it up — keep it private, it contains the PIN. Restore replaces this kiosk's settings and reconnects Spotify.</small>
     </div>
   </div>
   <div style="display:flex;gap:12px;">
@@ -1967,6 +1980,55 @@ function openSettings() {
 }
 
 function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); }
+
+// ── TECHNICIAN TOOLS ──
+// Real Spotify health check: runs an actual search (the thing guests do) and reports.
+async function testConnection() {
+  const el = document.getElementById('test-conn-result');
+  const show = (msg, ok) => { if (el) { el.textContent = msg; el.style.color = ok ? '#1DB954' : '#ff7070'; } };
+  show('Testing…', true);
+  if (!await ensureToken()) { show('✗ Not connected to Spotify (no login). Connect first.', false); return; }
+  try {
+    // Direct fetch bypasses the internal cooldown gate so the test truly reaches Spotify.
+    const r = await fetch('https://api.spotify.com/v1/search?q=test&type=track&limit=1', { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (r.ok) show('✓ Working — Spotify search is responding (' + activeKeyLabel() + ').', true);
+    else show('✗ Not working — ' + apiErrorCode(r.status) + ' (HTTP ' + r.status + '). If rate-limited, wait or switch keys.', false);
+  } catch(e) { show('✗ Could not reach Spotify (network problem).', false); }
+}
+
+// Settings that make sense to move between kiosks / back up. Deliberately excludes
+// session tokens, transient state (oos/closed), cached art, and local revenue data.
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+
+function exportSettings() {
+  const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
+  SETTINGS_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = v; });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url; a.download = 'funhub-jukebox-settings-' + stamp + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function restoreSettings(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(reader.result); }
+    catch(e) { alert('Could not read that file. Make sure it\'s the exported jukebox settings .json.'); input.value = ''; return; }
+    if (!data || !data._jukebox_settings) { alert('That doesn\'t look like a jukebox settings file.'); input.value = ''; return; }
+    if (!confirm('Restore settings from this file? It replaces this kiosk\'s current settings and reconnects Spotify.')) { input.value = ''; return; }
+    SETTINGS_KEYS.forEach(k => { if (data[k] !== undefined) localStorage.setItem(k, data[k]); });
+    clearTokens();  // restored keys need a fresh Spotify login
+    alert('Settings restored. Reloading the jukebox…');
+    window.location.href = window.location.pathname;
+  };
+  reader.readAsText(file);
+}
 
 function adjustCpt(d) {
   creditsPerTap = Math.max(1, creditsPerTap + d);
