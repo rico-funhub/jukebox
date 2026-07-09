@@ -727,7 +727,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.14.0</p>
+<p class="version-badge">v1.15.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1647,7 +1647,7 @@ function startExternalPoll() {
   extSafetyTimer = setInterval(() => {
     if (outOfService || playbackMode !== 'external') return;
     pollExternalOnce();
-  }, 30000);
+  }, 90000);
 }
 
 function stopExternalPoll() {
@@ -1982,7 +1982,7 @@ function liveSearch(val) {
   clearTimeout(searchTimer);
   if (val.trim().length < 2) { document.getElementById('search-results').innerHTML = ''; document.getElementById('search-status').textContent = ''; return; }
   document.getElementById('search-status').textContent = T[lang].searching;
-  searchTimer = setTimeout(() => doSearch(val.trim(), 'search-results', 'search-status', false), 750);
+  searchTimer = setTimeout(() => doSearch(val.trim(), 'search-results', 'search-status', false), 1200);
 }
 
 // ── SPLIT SEARCH ──
@@ -2010,7 +2010,7 @@ function splitSearch(val) {
   clearTimeout(splitTimer);
   if (val.trim().length < 2) { document.getElementById('split-results').innerHTML = ''; document.getElementById('split-status').textContent = ''; return; }
   document.getElementById('split-status').textContent = T[lang].searching;
-  splitTimer = setTimeout(() => doSearch(val.trim(), 'split-results', 'split-status', true), 750);
+  splitTimer = setTimeout(() => doSearch(val.trim(), 'split-results', 'split-status', true), 1200);
 }
 
 // ── SHARED SEARCH ──
@@ -3079,7 +3079,7 @@ function staffSearch(val) {
     return;
   }
   document.getElementById('staff-status').textContent = 'Searching...';
-  staffSearchTimer = setTimeout(() => staffDoSearch(val.trim()), 350);
+  staffSearchTimer = setTimeout(() => staffDoSearch(val.trim()), 800);
 }
 
 async function staffDoSearch(q) {
@@ -3254,7 +3254,7 @@ function startKeepAlive() {
     if (currentScreen !== 'playing') return;
     if (document.getElementById('split-panel').classList.contains('open')) return;
     fetchQueue();
-  }, 60000);
+  }, 180000);
   setInterval(() => {
     if (outOfService) return;
     if (!deviceId && accessToken && spotifyPlayer) { try { spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
