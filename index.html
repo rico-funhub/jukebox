@@ -701,6 +701,15 @@
   </div>
 </div>
 
+<!-- FREE-PLAY COOLDOWN -->
+<div id="cooldown-overlay" onclick="handleSettingsTap()" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.92);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;">
+  <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" style="width:130px;margin-bottom:1.5rem;" alt="FUNHUB" />
+  <div style="font-size:64px;margin-bottom:0.5rem;">🎶</div>
+  <p style="font-size:24px;font-weight:800;margin-bottom:0.5rem;">Song added!</p>
+  <p style="font-size:16px;color:rgba(255,255,255,0.55);margin-bottom:1.75rem;line-height:1.5;">Give someone else a turn.<br>Next song available in</p>
+  <div id="cooldown-count" style="font-size:72px;font-weight:900;color:#1DB954;line-height:1;">0:30</div>
+</div>
+
 <!-- CREDITS -->
 <div class="credits-badge" id="credits-badge"><div class="credits-dot"></div><span id="credits-text"></span></div>
 
@@ -716,7 +725,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.8.0</p>
+<p class="version-badge">v1.9.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -786,6 +795,14 @@
     <div class="settings-row">
       <div class="settings-label">Hide explicit songs<small>Filters explicit-flagged tracks from search</small></div>
       <button class="s-btn" id="explicit-toggle-btn" onclick="toggleHideExplicit()">On</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Free-play cooldown<small>Wait between free songs (0 = off). Free mode only.</small></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="s-btn" onclick="adjustFreeCooldown(-15)" style="padding:4px 12px;">−</button>
+        <span id="free-cooldown-val" style="font-size:14px;font-weight:700;min-width:56px;text-align:center;">30s</span>
+        <button class="s-btn" onclick="adjustFreeCooldown(15)" style="padding:4px 12px;">+</button>
+      </div>
     </div>
     <div class="settings-row">
       <div class="settings-label">Playback<small>In-app player, or send to another Spotify device</small></div>
@@ -989,6 +1006,11 @@ function saveCoinCounts() { localStorage.setItem('jukebox_coin_counts', JSON.str
 function lineForKey(k) { for (let i = 0; i < coinLines.length; i++) { if (coinLines[i] && coinLines[i].key === k) return i; } return -1; }
 let oskEnabled = localStorage.getItem('jukebox_osk') !== 'off';
 let freeMode = localStorage.getItem('jukebox_free') === 'on';
+// Free-play cooldown: after a free song is queued, the picker locks for this many
+// seconds (0 = off). Stops one guest spamming the queue AND cuts API calls.
+let freePlayCooldown = parseInt(localStorage.getItem('jukebox_free_cooldown') || '30');
+let freeCooldownUntil = 0;
+let cooldownTimer = null;
 // Hide explicit tracks from search. Defaults ON (family venue) unless a value is saved.
 let hideExplicit = localStorage.getItem('jukebox_hide_explicit') !== 'off';
 let settingsTaps = 0, settingsTapTimer = null;
@@ -1082,7 +1104,45 @@ function setLang(l) {
 
 // True when a guest is allowed to pick a song: either they've loaded credits,
 // or the operator has switched on free mode (no card needed).
-function canPick() { return freeMode || credits > 0; }
+function cooldownActive() { return freeMode && freePlayCooldown > 0 && Date.now() < freeCooldownUntil; }
+
+function canPick() {
+  if (cooldownActive()) { showCooldown(); return false; }
+  return freeMode || credits > 0;
+}
+
+// Start the shared free-play cooldown after a free song is queued.
+function startFreeCooldown() {
+  if (!freeMode || freePlayCooldown <= 0) return;
+  freeCooldownUntil = Date.now() + freePlayCooldown * 1000;
+  showCooldown();
+}
+
+function showCooldown() {
+  const ov = document.getElementById('cooldown-overlay');
+  if (!ov) return;
+  // Close any picker so nothing can be queued behind the overlay.
+  closeSplit();
+  if (currentScreen === 'search') closeSearch();
+  ov.style.display = 'flex';
+  tickCooldown();
+  if (cooldownTimer) clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(tickCooldown, 250);
+}
+
+function tickCooldown() {
+  const ov = document.getElementById('cooldown-overlay');
+  const left = Math.ceil((freeCooldownUntil - Date.now()) / 1000);
+  if (left <= 0) {
+    if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+    if (ov) ov.style.display = 'none';
+    // Back to the right idle screen, ready for the next guest.
+    showScreen(isPlaying ? 'playing' : 'attract');
+    return;
+  }
+  const el = document.getElementById('cooldown-count');
+  if (el) { const m = Math.floor(left / 60), s = left % 60; el.textContent = m + ':' + (s < 10 ? '0' : '') + s; }
+}
 
 function attractTap() {
   if (canPick()) openSongPicker();
@@ -1773,6 +1833,16 @@ async function queueTrack(uri, name, artist, art) {
     updateCredits();
     trackSongPlayed(name, artist, uri);
 
+    // Free mode with a cooldown set: lock the picker + show the countdown so one
+    // guest can't spam the queue (and we stop hammering the API).
+    if (freeMode && freePlayCooldown > 0) {
+      const st = document.getElementById(document.getElementById('split-panel').classList.contains('open') ? 'split-status' : 'search-status');
+      if (st) st.textContent = T[lang].added;
+      startFreeCooldown();
+      setTimeout(fetchQueue, 2000);
+      return;
+    }
+
     const moreCredits = freeMode || credits >= creditsPerSong;
     if (moreCredits) {
       // Still has credits: confirm the add, clear the box, keep searching for the next song
@@ -1972,6 +2042,7 @@ function openSettings() {
   const otb = document.getElementById('osk-toggle-btn'); if (otb) otb.textContent = oskEnabled ? 'On' : 'Off';
   const ftb = document.getElementById('free-toggle-btn'); if (ftb) ftb.textContent = freeMode ? 'On' : 'Off';
   const etb = document.getElementById('explicit-toggle-btn'); if (etb) etb.textContent = hideExplicit ? 'On' : 'Off';
+  const fcv = document.getElementById('free-cooldown-val'); if (fcv) fcv.textContent = cooldownLabel(freePlayCooldown);
   renderPlaybackSettings();
   renderKeySettings();
   document.getElementById('cpt-val').textContent = creditsPerTap;
@@ -2013,7 +2084,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_free_cooldown','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
@@ -2112,6 +2183,20 @@ function toggleHideExplicit() {
   if (btn) btn.textContent = hideExplicit ? 'On' : 'Off';
   // Cached results were filtered under the old setting — clear so new searches re-filter.
   for (const k in searchCache) delete searchCache[k];
+}
+
+function cooldownLabel(sec) {
+  if (sec <= 0) return 'Off';
+  if (sec < 60) return sec + 's';
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return s ? (m + 'm ' + s + 's') : (m + 'm');
+}
+
+function adjustFreeCooldown(delta) {
+  freePlayCooldown = Math.min(600, Math.max(0, freePlayCooldown + delta));
+  localStorage.setItem('jukebox_free_cooldown', String(freePlayCooldown));
+  const el = document.getElementById('free-cooldown-val');
+  if (el) el.textContent = cooldownLabel(freePlayCooldown);
 }
 
 // ── PLAYBACK MODE ──
