@@ -89,7 +89,6 @@
     .qr-card { background: #fff; padding: 14px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); line-height: 0; }
     .qr-card canvas { display: block; width: 240px; height: 240px; image-rendering: pixelated; }
     .qr-msg { font-size: 22px; font-weight: 800; color: #fff; text-align: center; max-width: 90%; line-height: 1.25; }
-    .qr-note { font-size: 15px; color: rgba(255,255,255,0.6); text-align: center; max-width: 90%; margin-top: -0.4rem; }
     /* Attract split: left = normal content, right = QR */
     #attract-qr { display: none; }
     #screen-attract.qr-on { flex-direction: row; gap: 0; }
@@ -599,7 +598,6 @@
   <div id="attract-qr">
     <div class="qr-card"><canvas id="attract-qr-canvas"></canvas></div>
     <p class="qr-msg" id="attract-qr-msg">Scan to request your song</p>
-    <p class="qr-note" id="attract-qr-note"></p>
   </div>
 </div>
 
@@ -610,7 +608,6 @@
   <div id="playing-qr">
     <div class="qr-card"><canvas id="playing-qr-canvas"></canvas></div>
     <p class="qr-msg" id="playing-qr-msg">Scan to request your song</p>
-    <p class="qr-note" id="playing-qr-note"></p>
   </div>
 
   <div class="playing-left">
@@ -764,7 +761,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.18.0</p>
+<p class="version-badge">v1.19.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -866,7 +863,7 @@
       <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
     </div>
 
-    <div class="s-sec">Song requests (QR)</div>
+    <div class="s-sec">External song request</div>
     <div class="settings-row">
       <div class="settings-label">QR on attract screen<small>Splits attract: left = tap to play, right = request QR</small></div>
       <button class="s-btn" id="qr-attract-btn" onclick="toggleQrAttract()">Off</button>
@@ -881,13 +878,6 @@
         <input id="qr-url-input" type="text" inputmode="none" placeholder="https://..." autocomplete="off" spellcheck="false" style="flex:1;min-width:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;font-family:monospace;outline:none;" />
         <button class="s-btn" onclick="pasteInto('qr-url-input')" style="padding:0 12px;">📋</button>
         <button class="s-btn" onclick="saveQrUrl()">Save</button>
-      </div>
-    </div>
-    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.6rem;">
-      <div class="settings-label">Extra line (optional)<small>Shown under the translated “scan to request” message</small></div>
-      <div style="display:flex;gap:8px;width:100%;">
-        <input id="qr-note-input" type="text" inputmode="none" placeholder="e.g. Staff will queue it shortly" autocomplete="off" style="flex:1;min-width:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;font-family:inherit;outline:none;" />
-        <button class="s-btn" onclick="saveQrNote()">Save</button>
       </div>
     </div>
 
@@ -1563,7 +1553,6 @@ let closedByStaff = localStorage.getItem('jukebox_closed') === '1';
 let autoSwitch = localStorage.getItem('jukebox_autoswitch') !== 'off';
 // Song-request QR (opt-in alternative screens). URL is a page Rico owns; the app only displays it.
 let qrUrl = localStorage.getItem('jukebox_qr_url') || '';
-let qrNote = localStorage.getItem('jukebox_qr_note') || '';
 let qrAttract = localStorage.getItem('jukebox_qr_attract') === 'on';
 let qrPlaying = localStorage.getItem('jukebox_qr_playing') === 'on';
 
@@ -2233,7 +2222,6 @@ function openSettings() {
   const qab = document.getElementById('qr-attract-btn'); if (qab) qab.textContent = qrAttract ? 'On' : 'Off';
   const qpb = document.getElementById('qr-playing-btn'); if (qpb) qpb.textContent = qrPlaying ? 'On' : 'Off';
   const qui = document.getElementById('qr-url-input'); if (qui) qui.value = qrUrl;
-  const qni = document.getElementById('qr-note-input'); if (qni) qni.value = qrNote;
   renderPlaybackSettings();
   renderKeySettings();
   document.getElementById('cpt-val').textContent = creditsPerTap;
@@ -2279,7 +2267,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_free_cooldown','jukebox_qr_url','jukebox_qr_note','jukebox_qr_attract','jukebox_qr_playing','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_free_cooldown','jukebox_qr_url','jukebox_qr_attract','jukebox_qr_playing','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
@@ -2389,11 +2377,11 @@ function applyQrScreens() {
   const aScreen = document.getElementById('screen-attract');
   const aOn = qrAttract && !!qrUrl;
   if (aScreen) aScreen.classList.toggle('qr-on', aOn);
-  if (aOn) { drawQR('attract-qr-canvas', qrUrl); setTxt('attract-qr-msg', msg); setTxt('attract-qr-note', qrNote); }
+  if (aOn) { drawQR('attract-qr-canvas', qrUrl); setTxt('attract-qr-msg', msg); }
   const pScreen = document.getElementById('screen-playing');
   const pOn = qrPlaying && !!qrUrl;
   if (pScreen) pScreen.classList.toggle('qr-on', pOn);
-  if (pOn) { drawQR('playing-qr-canvas', qrUrl); setTxt('playing-qr-msg', msg); setTxt('playing-qr-note', qrNote); }
+  if (pOn) { drawQR('playing-qr-canvas', qrUrl); setTxt('playing-qr-msg', msg); }
 }
 
 function toggleQrAttract() {
@@ -2416,12 +2404,6 @@ function saveQrUrl() {
   hideOsk();
   applyQrScreens();
   alert(qrUrl ? 'Request link saved.' : 'Request link cleared.');
-}
-function saveQrNote() {
-  qrNote = (document.getElementById('qr-note-input').value || '').trim();
-  localStorage.setItem('jukebox_qr_note', qrNote);
-  hideOsk();
-  applyQrScreens();
 }
 
 function toggleAutoSwitch() {
@@ -2957,7 +2939,7 @@ function buildOsk() {
   updateOskCase();
 
   // Tapping an input brings the on-screen keyboard back after hide.
-  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name', 'blacklist-input', 'staff-search-input', 'key-a-input', 'key-b-input', 'qr-url-input', 'qr-note-input'].forEach(id => {
+  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name', 'blacklist-input', 'staff-search-input', 'key-a-input', 'key-b-input', 'qr-url-input'].forEach(id => {
     const inp = document.getElementById(id);
     if (!inp) return;
     inp.addEventListener('click', () => { if (oskEnabled) showOsk(id); });
@@ -3009,7 +2991,7 @@ function applyOskMode() {
   // OSK on: suppress the native tablet keyboard with inputmode=none, but keep the
   // field fully live so programmatic input + oninput still fire (readonly would kill them).
   // OSK off: normal field, native/PC keyboard types directly.
-  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name', 'blacklist-input', 'staff-search-input', 'key-a-input', 'key-b-input', 'qr-url-input', 'qr-note-input'].forEach(id => {
+  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name', 'blacklist-input', 'staff-search-input', 'key-a-input', 'key-b-input', 'qr-url-input'].forEach(id => {
     const inp = document.getElementById(id);
     if (!inp) return;
     if (oskEnabled) inp.setAttribute('inputmode', 'none');
