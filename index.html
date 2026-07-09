@@ -312,7 +312,9 @@
     .osk-key.key-caps.caps-on,
     .osk-key.key-shift.shift-on { background: #d1d1d6; color: #000; }
     .osk-key.key-hide  { background: #636366; flex: 1.5; font-size: 17px; }
-    .osk-key.key-space { background: #3a3a3c; flex: 8.5; font-size: 14px; color: rgba(255,255,255,0.3); }
+    .osk-key.key-space { background: #3a3a3c; flex: 6; font-size: 14px; color: rgba(255,255,255,0.3); }
+    .osk-key.key-toggle { background: #48484a; flex: 1.7; font-size: 14px; font-weight: 700; }
+    .osk-key.key-sym { font-size: 20px; }
     .osk-key.key-clear { background: #8b0000; flex: 1.5; font-size: 13px; font-weight: 700; }
     .osk-key.key-search { background: #1DB954; color: #000; flex: 1.5; font-size: 13px; font-weight: 800; }
 
@@ -779,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.21.0</p>
+<p class="version-badge">v1.22.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -2433,11 +2435,15 @@ function toggleQrPlaying() {
   applyQrScreens();
 }
 function saveQrUrl() {
-  qrUrl = (document.getElementById('qr-url-input').value || '').trim();
+  let v = (document.getElementById('qr-url-input').value || '').trim();
+  // Accept a bare domain — add https:// automatically if no scheme was typed.
+  if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+  qrUrl = v;
+  const inp = document.getElementById('qr-url-input'); if (inp) inp.value = v;
   localStorage.setItem('jukebox_qr_url', qrUrl);
   hideOsk();
   applyQrScreens();
-  alert(qrUrl ? 'Request link saved.' : 'Request link cleared.');
+  alert(qrUrl ? 'Request link saved:\n' + qrUrl : 'Request link cleared.');
 }
 
 function toggleAutoSwitch() {
@@ -2922,6 +2928,10 @@ let oskShift = true; // phone-style: first letter capitalized
 
 function oskUpper() { return oskCaps || oskShift; }
 
+let oskSymbols = false;      // letter layout vs URL/symbol layout
+let oskListenersDone = false; // attach input click handlers only once
+function oskToggleSymbols() { oskSymbols = !oskSymbols; buildOsk(); }
+
 function buildOsk() {
   const rows = ['osk-r1','osk-r2','osk-r3','osk-r4','osk-r5'].map(id => document.getElementById(id));
   if (rows.some(r => !r)) return;
@@ -2934,6 +2944,7 @@ function buildOsk() {
     });
     row.appendChild(btn);
   };
+  const sym = (row, k) => row.appendChild(makeKey(k, 'osk-sym', () => oskType(k)));
 
   // Row 1: numbers + clear (clear sits directly above the erase key, right of the 0)
   r1.innerHTML = '';
@@ -2941,43 +2952,49 @@ function buildOsk() {
     r1.appendChild(makeKey(k, '', () => oskType(k))));
   r1.appendChild(makeKey('clear', 'key-clear', () => oskClear()));
 
-  // Row 2: QWERTYUIOP + delete
-  r2.innerHTML = '';
-  ['Q','W','E','R','T','Y','U','I','O','P'].forEach(k => letter(r2, k));
-  r2.appendChild(makeKey('\u232B', 'key-del', () => oskDel()));
+  r2.innerHTML = ''; r3.innerHTML = ''; r4.innerHTML = '';
+  if (oskSymbols) {
+    // URL / symbol layout
+    ['.', '/', ':', '-', '_', '?', '=', '&', '@', '~'].forEach(k => sym(r2, k));
+    r2.appendChild(makeKey('\u232B', 'key-del', () => oskDel()));
+    ['#', '%', '+', '*', '(', ')', '[', ']', ';'].forEach(k => sym(r3, k));
+    r3.appendChild(makeKey('\u23CE', 'key-enter', () => oskSubmit()));
+    [',', '!', "'", '"', '$', '\\', '|', '<', '>'].forEach(k => sym(r4, k));
+  } else {
+    // Letter layout
+    ['Q','W','E','R','T','Y','U','I','O','P'].forEach(k => letter(r2, k));
+    r2.appendChild(makeKey('\u232B', 'key-del', () => oskDel()));
+    const capsBtn = makeKey('\u21EA', 'key-caps', () => { oskCaps = !oskCaps; oskShift = false; updateOskCase(); });
+    capsBtn.id = 'osk-caps';
+    r3.appendChild(capsBtn);
+    ['A','S','D','F','G','H','J','K','L'].forEach(k => letter(r3, k));
+    r3.appendChild(makeKey('\u23CE', 'key-enter', () => oskSubmit()));
+    const shiftL = makeKey('\u21E7', 'key-shift', () => { oskShift = !oskShift; updateOskCase(); });
+    shiftL.id = 'osk-shift-l';
+    r4.appendChild(shiftL);
+    ['Z','X','C','V','B','N','M'].forEach(k => letter(r4, k));
+    const shiftR = makeKey('\u21E7', 'key-shift', () => { oskShift = !oskShift; updateOskCase(); });
+    shiftR.id = 'osk-shift-r';
+    r4.appendChild(shiftR);
+  }
 
-  // Row 3: caps + ASDFGHJKL + enter
-  r3.innerHTML = '';
-  const capsBtn = makeKey('\u21EA', 'key-caps', () => { oskCaps = !oskCaps; oskShift = false; updateOskCase(); });
-  capsBtn.id = 'osk-caps';
-  r3.appendChild(capsBtn);
-  ['A','S','D','F','G','H','J','K','L'].forEach(k => letter(r3, k));
-  r3.appendChild(makeKey('\u23CE', 'key-enter', () => oskSubmit()));
-
-  // Row 4: shift + ZXCVBNM + shift
-  r4.innerHTML = '';
-  const shiftL = makeKey('\u21E7', 'key-shift', () => { oskShift = !oskShift; updateOskCase(); });
-  shiftL.id = 'osk-shift-l';
-  r4.appendChild(shiftL);
-  ['Z','X','C','V','B','N','M'].forEach(k => letter(r4, k));
-  const shiftR = makeKey('\u21E7', 'key-shift', () => { oskShift = !oskShift; updateOskCase(); });
-  shiftR.id = 'osk-shift-r';
-  r4.appendChild(shiftR);
-
-  // Row 5: hide + space + search (search submits the query)
+  // Row 5: hide + symbols/ABC toggle + space + search
   r5.innerHTML = '';
   r5.appendChild(makeKey('\u2328\u25BE', 'key-hide', () => hideOsk()));
+  r5.appendChild(makeKey(oskSymbols ? 'ABC' : '#+=', 'key-toggle', () => oskToggleSymbols()));
   r5.appendChild(makeKey('space', 'key-space', () => oskType(' ')));
   r5.appendChild(makeKey('search', 'key-search', () => oskSubmit()));
 
   updateOskCase();
 
-  // Tapping an input brings the on-screen keyboard back after hide.
-  ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name', 'blacklist-input', 'staff-search-input', 'key-a-input', 'key-b-input', 'qr-url-input'].forEach(id => {
-    const inp = document.getElementById(id);
-    if (!inp) return;
-    inp.addEventListener('click', () => { if (oskEnabled) showOsk(id); });
-  });
+  if (!oskListenersDone) {
+    ['search-input', 'split-input', 'setup-key-input', 'setup-key-b-input', 'setup-key-a-name', 'setup-key-b-name', 'blacklist-input', 'staff-search-input', 'key-a-input', 'key-b-input', 'qr-url-input'].forEach(id => {
+      const inp = document.getElementById(id);
+      if (!inp) return;
+      inp.addEventListener('click', () => { if (oskEnabled) showOsk(id); });
+    });
+    oskListenersDone = true;
+  }
 }
 
 function updateOskCase() {
