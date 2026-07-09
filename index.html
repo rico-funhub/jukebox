@@ -603,7 +603,8 @@
 
   <div class="split-panel" id="split-panel">
     <div class="split-top">
-      <input id="split-input" class="split-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="splitSearch(this.value)" />
+      <input id="split-input" class="split-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();submitSplit();}" />
+      <button class="s-btn" onclick="submitSplit()" style="background:#1DB954;color:#000;font-weight:800;margin-left:8px;">Search</button>
     </div>
     <p id="split-status" class="split-status"></p>
     <ul id="split-results" class="split-results"></ul>
@@ -615,7 +616,8 @@
   <div id="search-bg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(60px) brightness(0.15);transform:scale(1.15);z-index:0;transition:background-image 1s ease;"></div>
   <div class="search-top" style="position:relative;z-index:1;">
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="search-logo" alt="FUNHUB" />
-    <input id="search-input" class="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="liveSearch(this.value)" />
+    <input id="search-input" class="search-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();submitSearch();}" />
+    <button class="search-cancel" id="search-go" onclick="submitSearch()" style="background:#1DB954;color:#000;font-weight:800;">Search</button>
     <button class="search-cancel" id="search-cancel" onclick="closeSearch()">Back</button>
   </div>
   <div class="search-results-wrap" style="position:relative;z-index:1;">
@@ -665,7 +667,7 @@
     <!-- RIGHT: search + queue -->
     <div class="staff-right">
       <div class="staff-search-top">
-        <input id="staff-search-input" class="staff-search-input" type="text" placeholder="Search for a song..." autocomplete="off" oninput="staffSearch(this.value)" />
+        <input id="staff-search-input" class="staff-search-input" type="text" placeholder="Search for a song, then press Enter..." autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();staffSearch(this.value);}" />
       </div>
       <p id="staff-status" class="staff-status"></p>
       <ul id="staff-results" class="staff-results"></ul>
@@ -727,7 +729,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.15.0</p>
+<p class="version-badge">v1.16.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1647,7 +1649,7 @@ function startExternalPoll() {
   extSafetyTimer = setInterval(() => {
     if (outOfService || playbackMode !== 'external') return;
     pollExternalOnce();
-  }, 90000);
+  }, 180000);
 }
 
 function stopExternalPoll() {
@@ -1979,10 +1981,19 @@ function closeSearch() { clearIdle(); hideOsk(); isPlaying ? showScreen('playing
 
 function liveSearch(val) {
   resetIdle();
-  clearTimeout(searchTimer);
   if (val.trim().length < 2) { document.getElementById('search-results').innerHTML = ''; document.getElementById('search-status').textContent = ''; return; }
   document.getElementById('search-status').textContent = T[lang].searching;
-  searchTimer = setTimeout(() => doSearch(val.trim(), 'search-results', 'search-status', false), 1200);
+  doSearch(val.trim(), 'search-results', 'search-status', false);
+}
+// Searches run on submit (Enter key / Search button), not while typing — one Spotify
+// call per query instead of one per keystroke-pause.
+function submitSearch() { liveSearch((document.getElementById('search-input').value || '').trim()); }
+function submitSplit() { splitSearch((document.getElementById('split-input').value || '').trim()); }
+function oskSubmit() {
+  if (oskActiveInput === 'search-input') submitSearch();
+  else if (oskActiveInput === 'split-input') submitSplit();
+  else if (oskActiveInput === 'staff-search-input') staffSearch(document.getElementById('staff-search-input').value || '');
+  else hideOsk();
 }
 
 // ── SPLIT SEARCH ──
@@ -2007,10 +2018,9 @@ function closeSplit() {
 
 function splitSearch(val) {
   resetIdle();
-  clearTimeout(splitTimer);
   if (val.trim().length < 2) { document.getElementById('split-results').innerHTML = ''; document.getElementById('split-status').textContent = ''; return; }
   document.getElementById('split-status').textContent = T[lang].searching;
-  splitTimer = setTimeout(() => doSearch(val.trim(), 'split-results', 'split-status', true), 1200);
+  doSearch(val.trim(), 'split-results', 'split-status', true);
 }
 
 // ── SHARED SEARCH ──
@@ -2790,7 +2800,7 @@ function buildOsk() {
   capsBtn.id = 'osk-caps';
   r3.appendChild(capsBtn);
   ['A','S','D','F','G','H','J','K','L'].forEach(k => letter(r3, k));
-  r3.appendChild(makeKey('\u23CE', 'key-enter', () => hideOsk()));
+  r3.appendChild(makeKey('\u23CE', 'key-enter', () => oskSubmit()));
 
   // Row 4: shift + ZXCVBNM + shift
   r4.innerHTML = '';
@@ -2872,18 +2882,16 @@ function applyOskMode() {
 }
 
 function oskFire(inp) {
-  // Call the right search directly — reliable even if the input event is swallowed.
-  if (inp.id === 'search-input') liveSearch(inp.value);
-  else if (inp.id === 'split-input') splitSearch(inp.value);
-  else if (inp.id === 'staff-search-input') staffSearch(inp.value);
-  else if (inp.id.startsWith('coin-name-')) { const i = parseInt(inp.id.replace('coin-name-','')); if (coinLines[i]) { coinLines[i].name = inp.value; saveCoinLines(); } }
-  // blacklist-input needs no live action — it's applied via the Block button.
+  // Live-updates that cost no API call. Searches are NOT live — they run on the
+  // Enter key / Search button (oskSubmit, submitSearch) to save Spotify calls.
+  if (inp.id.startsWith('coin-name-')) { const i = parseInt(inp.id.replace('coin-name-','')); if (coinLines[i]) { coinLines[i].name = inp.value; saveCoinLines(); } }
 }
 
 function oskType(char) {
   const inp = document.getElementById(oskActiveInput);
   if (!inp) return;
   inp.value += char;
+  resetIdle();
   oskFire(inp);
 }
 
@@ -3072,14 +3080,13 @@ async function staffVolume(val) {
 }
 
 function staffSearch(val) {
-  clearTimeout(staffSearchTimer);
   if (!val.trim()) {
     document.getElementById('staff-results').innerHTML = '';
     document.getElementById('staff-status').textContent = '';
     return;
   }
   document.getElementById('staff-status').textContent = 'Searching...';
-  staffSearchTimer = setTimeout(() => staffDoSearch(val.trim()), 800);
+  staffDoSearch(val.trim());
 }
 
 async function staffDoSearch(q) {
@@ -3246,15 +3253,10 @@ async function fetchAccount() {
 }
 
 function startKeepAlive() {
-  // Up-next now refreshes on real events: a guest queueing (queueTrack calls
-  // fetchQueue), a track change (onState), and a song-end timer. This is just a
-  // slow safety net to catch anything those miss. Skip while off-screen or OOS.
-  setInterval(() => {
-    if (outOfService || !isPlaying || playbackMode !== 'inapp') return;
-    if (currentScreen !== 'playing') return;
-    if (document.getElementById('split-panel').classList.contains('open')) return;
-    fetchQueue();
-  }, 180000);
+  // In-app up-next is fully event-driven now: a guest queueing (queueTrack -> fetchQueue),
+  // a track change (SDK onState -> fetchQueue), and a per-song scheduled refresh
+  // (scheduleInAppQueueRefresh). No blind interval poll needed. This remaining timer is
+  // NOT a Spotify call — it just reconnects the local Web Playback SDK if the device drops.
   setInterval(() => {
     if (outOfService) return;
     if (!deviceId && accessToken && spotifyPlayer) { try { spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
