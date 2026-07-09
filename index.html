@@ -716,7 +716,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.7.0</p>
+<p class="version-badge">v1.8.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -2013,7 +2013,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
@@ -2366,25 +2366,84 @@ function resetCoinCounts() {
 }
 
 // Build the 5 coin-line rows in settings.
+function money(n) { return '$' + (Math.round(n * 100) / 100).toFixed(2); }
+
 function renderCoinLines() {
   const box = document.getElementById('coin-lines');
   if (!box) return;
   let html = '';
+  let grand = 0;
   for (let i = 0; i < 5; i++) {
     const line = coinLines[i];
     const mapping = (mappingLine === i);
-    const label = mapping ? 'Press a key or button…' : (line ? line.label : 'not set');
+    const inputLabel = mapping ? 'Press a key or button…' : (line ? line.label : 'not set');
     const count = coinCounts[i] || 0;
-    html += `<div style="display:flex;align-items:center;gap:8px;width:100%;padding:6px 0;">
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:600;">Line ${i+1}<span style="color:rgba(255,255,255,0.35);font-weight:400;"> · ${label}</span></div>
-        <div style="font-size:12px;color:#1DB954;">${count} play${count===1?'':'s'}</div>
+    const value = line && line.value > 0 ? line.value : 0;
+    const cr = line && line.credits > 0 ? line.credits : creditsPerTap;
+    const subtotal = count * value;
+    grand += subtotal;
+    if (!line && !mapping) {
+      // Empty slot: just an "Add" control.
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 0;border-top:1px solid rgba(255,255,255,0.06);">
+        <div style="font-size:14px;color:rgba(255,255,255,0.35);">Line ${i+1} · not set</div>
+        <button class="s-btn" onclick="startCoinMapping(${i})">Map</button>
+      </div>`;
+      continue;
+    }
+    html += `<div style="width:100%;padding:10px 0;border-top:1px solid rgba(255,255,255,0.06);">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input id="coin-name-${i}" type="text" inputmode="none" value="${(line && line.name ? line.name : '').replace(/"/g,'&quot;')}" placeholder="Line ${i+1} name" oninput="setCoinName(${i}, this.value)" style="flex:1;min-width:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 12px;font-size:14px;color:#fff;outline:none;" />
+        <button class="s-btn" onclick="startCoinMapping(${i})" style="padding:0 12px;">${line ? 'Remap' : 'Map'}</button>
+        ${i>0 ? `<button class="s-btn" onclick="clearCoinLine(${i})" style="padding:0 10px;">✕</button>` : ''}
       </div>
-      <button class="s-btn" onclick="startCoinMapping(${i})">${line ? 'Remap' : 'Map'}</button>
-      ${i>0 ? `<button class="s-btn" onclick="clearCoinLine(${i})" style="padding:0 12px;">✕</button>` : ''}
+      <div style="font-size:11px;color:rgba(255,255,255,0.35);margin:4px 0 8px;">Input: ${inputLabel}</div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;color:rgba(255,255,255,0.5);">Coin value</span>
+          <button class="s-btn" onclick="adjustCoinValue(${i},-0.25)" style="padding:2px 10px;">−</button>
+          <span style="font-size:14px;font-weight:700;min-width:52px;text-align:center;">${money(value)}</span>
+          <button class="s-btn" onclick="adjustCoinValue(${i},0.25)" style="padding:2px 10px;">+</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;color:rgba(255,255,255,0.5);">Credits</span>
+          <button class="s-btn" onclick="adjustCoinCredits(${i},-1)" style="padding:2px 10px;">−</button>
+          <span style="font-size:14px;font-weight:700;min-width:26px;text-align:center;">${cr}</span>
+          <button class="s-btn" onclick="adjustCoinCredits(${i},1)" style="padding:2px 10px;">+</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#1DB954;margin-top:6px;">${count} play${count===1?'':'s'} · ${money(subtotal)}</div>
     </div>`;
   }
+  html += `<div style="border-top:1px solid rgba(255,255,255,0.15);margin-top:8px;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:14px;font-weight:700;">Total revenue</span>
+    <span style="font-size:18px;font-weight:900;color:#1DB954;">${money(grand)}</span>
+  </div>`;
   box.innerHTML = html;
+  // Wire the nickname fields to the on-screen keyboard (tap to type, keyboard-less).
+  if (oskEnabled) {
+    for (let i = 0; i < 5; i++) {
+      const inp = document.getElementById('coin-name-' + i);
+      if (inp) inp.addEventListener('click', () => showOsk('coin-name-' + i));
+    }
+  }
+}
+
+function setCoinName(i, v) { if (coinLines[i]) { coinLines[i].name = v; saveCoinLines(); } }
+
+function adjustCoinValue(i, delta) {
+  if (!coinLines[i]) return;
+  const cur = coinLines[i].value > 0 ? coinLines[i].value : 0;
+  coinLines[i].value = Math.max(0, Math.round((cur + delta) * 100) / 100);
+  saveCoinLines();
+  renderCoinLines();
+}
+
+function adjustCoinCredits(i, delta) {
+  if (!coinLines[i]) return;
+  const cur = coinLines[i].credits > 0 ? coinLines[i].credits : creditsPerTap;
+  coinLines[i].credits = Math.min(50, Math.max(1, cur + delta));
+  saveCoinLines();
+  renderCoinLines();
 }
 
 function settingsChangePin() {
@@ -2587,6 +2646,7 @@ function oskFire(inp) {
   // Call the right search directly — reliable even if the input event is swallowed.
   if (inp.id === 'search-input') liveSearch(inp.value);
   else if (inp.id === 'split-input') splitSearch(inp.value);
+  else if (inp.id.startsWith('coin-name-')) { const i = parseInt(inp.id.replace('coin-name-','')); if (coinLines[i]) { coinLines[i].name = inp.value; saveCoinLines(); } }
 }
 
 function oskType(char) {
@@ -2900,7 +2960,9 @@ function triggerCoin(lineIndex) {
     saveCoinCounts();
   }
   if (freeMode) { openSongPicker(); return; }
-  credits += creditsPerTap;
+  const line = coinLines[lineIndex];
+  const gained = (line && line.credits > 0) ? line.credits : creditsPerTap;
+  credits += gained;
   updateCredits();
   trackCreditInserted();
   updateAttractText();
