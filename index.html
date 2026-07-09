@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.23.0</p>
+<p class="version-badge">v1.24.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -989,6 +989,10 @@
     <div class="settings-row">
       <div class="settings-label">Change PIN<small>Must be 4 digits</small></div>
       <button class="s-btn" onclick="settingsChangePin()">Change</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Software version<small id="update-status">—</small></div>
+      <button class="s-btn" id="update-btn" onclick="checkForUpdates()">Check for updates</button>
     </div>
 
     <div class="s-sec">🔧 Technician</div>
@@ -2247,6 +2251,8 @@ function openSettings() {
   const asb = document.getElementById('autoswitch-btn'); if (asb) asb.textContent = autoSwitch ? 'On' : 'Off';
   const qab = document.getElementById('qr-attract-btn'); if (qab) qab.textContent = qrAttract ? 'On' : 'Off';
   const qob = document.getElementById('qr-only-btn'); if (qob) qob.textContent = qrOnly ? 'On' : 'Off';
+  const us = document.getElementById('update-status'); if (us) us.textContent = currentVersion();
+  const ub = document.getElementById('update-btn'); if (ub) { ub.textContent = 'Check for updates'; ub.onclick = checkForUpdates; ub.disabled = false; }
   const qpb = document.getElementById('qr-playing-btn'); if (qpb) qpb.textContent = qrPlaying ? 'On' : 'Off';
   const qui = document.getElementById('qr-url-input'); if (qui) qui.value = qrUrl;
   renderPlaybackSettings();
@@ -2840,6 +2846,36 @@ function adjustCoinCredits(i, delta) {
   coinLines[i].credits = Math.min(50, Math.max(1, cur + delta));
   saveCoinLines();
   renderCoinLines();
+}
+
+// Reads the running version from the on-screen badge, fetches the live file from the
+// server (cache-busted) to read its badge, and compares. If newer, the button becomes
+// "Update now" and force-reloads with a fresh URL param to bypass the browser cache.
+function currentVersion() { return (document.querySelector('.version-badge')?.textContent || '').trim(); }
+async function checkForUpdates() {
+  const btn = document.getElementById('update-btn');
+  const status = document.getElementById('update-status');
+  const current = currentVersion();
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = 'Checking…';
+  try {
+    const res = await fetch(location.pathname + '?cb=' + Date.now(), { cache: 'no-store' });
+    const html = await res.text();
+    const m = html.match(/version-badge[^>]*>\s*([^<]+?)\s*</);
+    const latest = m ? m[1].trim() : null;
+    if (btn) btn.disabled = false;
+    if (!latest) { if (status) status.textContent = 'Couldn\'t read the latest version — try again.'; return; }
+    if (latest === current) {
+      if (status) status.textContent = 'Up to date (' + current + ')';
+      if (btn) { btn.textContent = 'Check for updates'; btn.onclick = checkForUpdates; }
+    } else {
+      if (status) status.textContent = 'Update ready: ' + latest + ' (you have ' + current + ')';
+      if (btn) { btn.textContent = 'Update now'; btn.onclick = () => { if (status) status.textContent = 'Updating…'; location.replace(location.pathname + '?v=' + Date.now()); }; }
+    }
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    if (status) status.textContent = 'Couldn\'t reach the server — check the connection.';
+  }
 }
 
 function settingsChangePin() {
