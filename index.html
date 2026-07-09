@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.30.0</p>
+<p class="version-badge">v1.31.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1913,11 +1913,8 @@ function onState(state) {
   }
   isPlaying = true;
   const track = state.track_window.current_track;
-  // Skip re-animating if same track already playing
-  if (track.uri === lastTrackUri) {
-    fetchQueue();
-    return;
-  }
+  // Same track still playing (pause/seek/volume event) — nothing to refresh.
+  if (track.uri === lastTrackUri) return;
   lastTrackUri = track.uri;
   const art = track.album?.images?.[0]?.url || null;
   document.getElementById('playing-track').textContent = track.name;
@@ -1929,24 +1926,13 @@ function onState(state) {
   const disc = document.getElementById('disc');
   disc.classList.add('spinning');
   if (currentScreen !== 'search') showScreen('playing');
+  // One refresh per actual track change — this is the only automatic queue call.
   fetchQueue();
-  scheduleInAppQueueRefresh(state);
 }
 
 // When an in-app track starts, schedule ONE queue refresh for when it should end
 // (the next track becomes current then, so up-next needs refreshing). Replaces
 // the old blind 30s poll — SDK events + this timer cover the real change points.
-let inAppQueueTimer = null;
-function scheduleInAppQueueRefresh(state) {
-  if (inAppQueueTimer) { clearTimeout(inAppQueueTimer); inAppQueueTimer = null; }
-  if (!state || state.paused) return;
-  const remaining = (state.duration || 0) - (state.position || 0);
-  if (remaining <= 0) return;
-  inAppQueueTimer = setTimeout(() => {
-    if (playbackMode === 'inapp' && isPlaying && currentScreen === 'playing') fetchQueue();
-  }, remaining + 1500);
-}
-
 // ── QUEUE ──
 async function fetchQueue() {
   if (!await ensureToken()) return;
