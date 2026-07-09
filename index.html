@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.27.0</p>
+<p class="version-badge">v1.28.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -3506,7 +3506,7 @@ function startKeepAlive() {
     if (currentScreen !== 'playing') return;
     if (document.getElementById('split-panel')?.classList.contains('open')) return;
     fetchQueue();
-  }, 30000);
+  }, 120000);
 }
 
 // ── INIT ──
