@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.29.0</p>
+<p class="version-badge">v1.30.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1157,7 +1157,7 @@ let hideExplicit = localStorage.getItem('jukebox_hide_explicit') !== 'off';
 let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
 let idleTimer = null;
-const IDLE_MS = 900000;
+const IDLE_MS = 60000; // search/picker returns to idle after 60s of no interaction
 let refreshTimer = null, refreshBusy = false;
 const searchCache = {};
 
