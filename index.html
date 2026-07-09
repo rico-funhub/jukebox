@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.31.0</p>
+<p class="version-badge">v1.32.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1761,6 +1761,7 @@ function startExternalPoll() {
   extSafetyTimer = setInterval(() => {
     if (outOfService || playbackMode !== 'external') return;
     if (document.hidden) return;
+    if (!isPlaying) return; // nothing playing -> pause polling until a manual action
     pollExternalOnce();
   }, 180000);
 }
@@ -1972,6 +1973,14 @@ function showQueueEmpty() {
 }
 
 // ── QUEUE TRACK ──
+// Refresh the up-next after a guest's own add. In external mode this also wakes the
+// poll chain back up (it goes dormant while nothing is playing), so a manual queue is
+// the "manual action" that resumes polling — now-playing + per-song end check.
+function afterQueueRefresh() {
+  setTimeout(fetchQueue, 2000);
+  if (playbackMode === 'external') setTimeout(pollExternalOnce, 2600);
+}
+
 async function queueTrack(uri, name, artist, art) {
   if (!await ensureToken()) return;
   // External mode with no chosen device: if the in-app SDK player is available
@@ -2020,7 +2029,7 @@ async function queueTrack(uri, name, artist, art) {
       const st = document.getElementById(document.getElementById('split-panel').classList.contains('open') ? 'split-status' : 'search-status');
       if (st) st.textContent = T[lang].added;
       startFreeCooldown();
-      setTimeout(fetchQueue, 2000);
+      afterQueueRefresh();
       return;
     }
 
@@ -2043,7 +2052,7 @@ async function queueTrack(uri, name, artist, art) {
       showScreen('playing');
     }
     // One refresh ~2s after the add is enough for Spotify to reflect the new queue.
-    setTimeout(fetchQueue, 2000);
+    afterQueueRefresh();
   } catch(e) {
     logError('E-PLAY-01', String(e));
     const el = document.getElementById('search-status') || document.getElementById('split-status');
