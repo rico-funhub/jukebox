@@ -727,7 +727,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.12.0</p>
+<p class="version-badge">v1.13.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -924,7 +924,7 @@
     </div>
     <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.5rem;">
       <div class="settings-label">Recent errors<small id="err-summary">None</small></div>
-      <div id="err-log" style="width:100%;font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.7;max-height:120px;overflow-y:auto;"></div>
+      <div id="err-log" style="width:100%;line-height:1.5;max-height:220px;overflow-y:auto;"></div>
     </div>
     <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;">
       <div class="settings-label">Play summary<small id="rev-summary">Loading...</small></div>
@@ -1070,19 +1070,27 @@ const searchCache = {};
 // Every failure gets a stable code so a tech knows exactly what broke.
 // Codes: E-AUTH-* auth/token, E-NET-* network, E-API-* Spotify API,
 //        E-SDK-* playback device, E-PLAY-* playback action, E-SRCH-* search.
+// Each error explains, in plain language a floor manager can act on: what happened
+// and what to do. Technical code kept alongside for the technician.
 const ERROR_HELP = {
-  'E-AUTH-01': 'No Spotify session. Tap Reconnect in operator settings and log in.',
-  'E-AUTH-02': 'Token refresh rejected (invalid_grant). Spotify login expired or was revoked. Reconnect required.',
-  'E-AUTH-03': 'Token refresh failed (network or Spotify down). Will retry; if it persists, check internet.',
-  'E-NET-01':  'Cannot reach Spotify (network/DNS). Check the kiosk internet connection.',
-  'E-API-401': 'Spotify rejected the request (401). Token invalid — Reconnect.',
-  'E-API-403': 'Spotify forbade the request (403). Account likely not Premium, or region-locked track.',
-  'E-API-429': 'Spotify rate limit (429). Too many requests — wait a minute.',
-  'E-API-5xx': 'Spotify server error (5xx). Their side. Retry shortly.',
-  'E-SDK-01':  'No playback device. Web Playback SDK not connected — Reconnect, ensure Premium + Chrome.',
-  'E-PLAY-01': 'Could not start/queue the song. Device not ready — Reconnect.',
-  'E-SRCH-01': 'Search request failed. See attached code for cause.'
+  'E-AUTH-01': { what: 'The jukebox isn\'t signed in to Spotify.', fix: 'In settings, tap “Reload & reconnect” and sign in to Spotify.' },
+  'E-AUTH-02': { what: 'The Spotify login expired or was cancelled.', fix: 'Settings → “Reload & reconnect”, then sign in again.' },
+  'E-AUTH-03': { what: 'Couldn\'t refresh the Spotify login — usually a dropped internet connection.', fix: 'Check the tablet\'s Wi-Fi. It keeps retrying on its own.' },
+  'E-NET-01':  { what: 'The kiosk can\'t reach the internet.', fix: 'Check the tablet\'s Wi-Fi / network connection.' },
+  'E-API-401': { what: 'Spotify rejected the request — the login went stale.', fix: 'Settings → “Reload & reconnect”, then sign in.' },
+  'E-API-403': { what: 'Spotify refused the request. The account is usually not Premium, or the song isn\'t available here.', fix: 'Make sure the connected account is Spotify Premium.' },
+  'E-API-429': { what: 'Too many requests to Spotify in a short time (rate limit).', fix: 'Wait a minute — it recovers on its own. If it\'s busy, switch to the other key in settings.' },
+  'E-API-5xx': { what: 'Spotify is having a problem on their end.', fix: 'Wait a few minutes and try again — nothing to fix on our side.' },
+  'E-SDK-01':  { what: 'The in-app music player didn\'t start.', fix: 'Settings → “Reload & reconnect”. Make sure the account is Premium.' },
+  'E-PLAY-01': { what: 'The song couldn\'t be queued or started.', fix: 'Settings → “Reload & reconnect”. If sending to an external speaker/device, pick it again.' },
+  'E-SRCH-01': { what: 'A song search failed.', fix: 'Usually a brief connection or rate-limit hiccup — try again. If it keeps happening, Reload & reconnect.' }
 };
+// Look up help with a sensible fallback for any unlisted code.
+function errHelp(code) {
+  if (ERROR_HELP[code]) return ERROR_HELP[code];
+  if (code && code.indexOf('E-API-') === 0) return { what: 'Spotify returned an unexpected error (' + code.replace('E-API-','HTTP ') + ').', fix: 'Try again shortly. If it persists, Reload & reconnect in settings.' };
+  return { what: 'Something went wrong.', fix: 'Try “Reload & reconnect” in settings.' };
+}
 
 let lastErrors = [];
 
@@ -1091,7 +1099,7 @@ function logError(code, detail) {
   lastErrors.unshift(entry);
   if (lastErrors.length > 20) lastErrors.pop();
   try { localStorage.setItem('jukebox_errors', JSON.stringify(lastErrors)); } catch(e) {}
-  console.error(`[JUKEBOX ${code}] ${ERROR_HELP[code] || ''} ${detail || ''}`);
+  console.error(`[JUKEBOX ${code}] ${errHelp(code).what} ${detail || ''}`);
   return code;
 }
 
@@ -2131,7 +2139,11 @@ function openSettings() {
   const el = document.getElementById('err-log');
   if (es) es.textContent = lastErrors.length ? (lastErrors.length + ' logged \u00b7 newest first') : 'None';
   if (el) el.innerHTML = lastErrors.length
-    ? lastErrors.map(e => `${localTime(e.at)} <span style=\"color:#ff7070\">${e.code}</span> ${(ERROR_HELP[e.code]||'').slice(0,60)}`).join('<br>')
+    ? lastErrors.map(e => { const h = errHelp(e.code); return `<div style="margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <div style="color:rgba(255,255,255,0.35);font-family:monospace;font-size:11px;">${localTime(e.at)} · ${e.code}</div>
+        <div style="color:#fff;font-size:13px;margin-top:3px;">${h.what}</div>
+        <div style="color:#1DB954;font-size:12px;margin-top:2px;">→ ${h.fix}</div>
+      </div>`; }).join('')
     : '<span style=\"color:rgba(255,255,255,0.25)\">No errors logged</span>';
   document.getElementById('settings-overlay').classList.add('open');
 }
@@ -3113,7 +3125,7 @@ function showError(title, msg, code) {
   const c = document.getElementById('error-code');
   if (t) t.textContent = title || 'Something went wrong';
   if (m) m.textContent = msg || 'The jukebox ran into a problem.';
-  if (c) c.textContent = code ? ('Error ' + code + ' \u00b7 ' + (ERROR_HELP[code] || '')) : '';
+  if (c) { const h = code ? errHelp(code) : null; c.textContent = h ? (h.what + ' — ' + h.fix + '  (' + code + ')') : ''; }
   // Auth errors are the ones a bad/mismatched key can cause — offer the fix path.
   const fx = document.getElementById('error-fixkeys-btn');
   if (fx) fx.style.display = (code && code.indexOf('E-AUTH') === 0) ? 'inline-block' : 'none';
