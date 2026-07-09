@@ -597,7 +597,7 @@
   </div>
   <div id="attract-qr">
     <div class="qr-card"><canvas id="attract-qr-canvas"></canvas></div>
-    <p class="qr-msg" id="attract-qr-msg">Scan to request your song</p>
+    <p class="qr-msg" id="attract-qr-msg">Got a song? Scan with your phone to request it</p>
   </div>
 </div>
 
@@ -607,7 +607,7 @@
 
   <div id="playing-qr">
     <div class="qr-card"><canvas id="playing-qr-canvas"></canvas></div>
-    <p class="qr-msg" id="playing-qr-msg">Scan to request your song</p>
+    <p class="qr-msg" id="playing-qr-msg">Got a song? Scan with your phone to request it</p>
   </div>
 
   <div class="playing-left">
@@ -761,7 +761,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.19.0</p>
+<p class="version-badge">v1.20.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1178,21 +1178,21 @@ function loadErrors() {
 // ── LANGUAGE ──
 const T = {
   en: {
-    tap: 'TAP YOUR CARD', tapPlay: 'TOUCH TO PLAY', sub: 'to pick a song!', scanRequest: 'Scan to request your song',
+    tap: 'TAP YOUR CARD', tapPlay: 'TOUCH TO PLAY', sub: 'to pick a song!', scanRequest: 'Got a song? Scan with your phone to request it',
     nowPlaying: 'Now playing', upNext: 'Up next',
     tapAdd: 'TAP YOUR CARD TO ADD A SONG!',
     searchPh: 'What song do you want?', searching: 'Searching...', noResults: 'No results found.', back: 'Back', added: 'Added! Pick another song', searchError: 'Search unavailable. Please tell a staff member.', noDevice: 'Player not ready — please tell a staff member.',
     splitPh: 'Search for a song...', queueEmpty: 'Tap your card to add\nthe next song!'
   },
   fr: {
-    tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TOUCHEZ POUR JOUER', sub: 'pour choisir une chanson!', scanRequest: 'Scannez pour demander une chanson',
+    tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TOUCHEZ POUR JOUER', sub: 'pour choisir une chanson!', scanRequest: 'Une chanson en tête? Scannez avec votre téléphone pour la demander',
     nowPlaying: 'En cours', upNext: 'À venir',
     tapAdd: 'TAPPEZ VOTRE CARTE POUR AJOUTER UNE CHANSON!',
     searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche en cours...', noResults: 'Aucun résultat.', back: 'Retour', added: 'Ajoutée! Choisis une autre chanson', searchError: 'Recherche indisponible. Avertis un employé.', noDevice: 'Lecteur non prêt — avertis un employé.',
     splitPh: 'Rechercher une chanson...', queueEmpty: 'Tappez votre carte pour ajouter\nla prochaine chanson!'
   },
   es: {
-    tap: 'ACERQUE SU TARJETA', tapPlay: 'TOCA PARA PONER UNA CANCIÓN', sub: '¡para elegir una canción!', scanRequest: 'Escanea para pedir una canción',
+    tap: 'ACERQUE SU TARJETA', tapPlay: 'TOCA PARA PONER UNA CANCIÓN', sub: '¡para elegir una canción!', scanRequest: '¿Tienes una canción? Escanea con tu teléfono para pedirla',
     nowPlaying: 'Reproduciendo', upNext: 'A continuación',
     tapAdd: '¡ACERQUE SU TARJETA PARA AGREGAR UNA CANCIÓN!',
     searchPh: '¿Qué canción quieres escuchar?', searching: 'Buscando...', noResults: 'Sin resultados.', back: 'Atrás', added: '¡Agregada! Elige otra canción', searchError: 'Búsqueda no disponible. Avisa a un empleado.', noDevice: 'Reproductor no listo — avisa a un empleado.',
@@ -2372,7 +2372,7 @@ function drawQR(canvasId, text) {
 
 // Show/hide the QR zones per the toggles, (re)draw the code, and localize the message.
 function applyQrScreens() {
-  const msg = (T[lang] && T[lang].scanRequest) || 'Scan to request your song';
+  const msg = (T[lang] && T[lang].scanRequest) || 'Got a song? Scan with your phone to request it';
   const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v || ''; };
   const aScreen = document.getElementById('screen-attract');
   const aOn = qrAttract && !!qrUrl;
