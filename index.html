@@ -111,12 +111,12 @@
     #playing-qr { display: none; }
     #screen-playing.qr-on #playing-qr {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      width: 27%; height: 100vh; gap: 1.1rem; padding: 2rem 1.2rem; z-index: 1;
+      width: 30%; height: 100vh; gap: 1.1rem; padding: 2rem 1.2rem; z-index: 1;
       border-right: 1px solid rgba(255,255,255,0.07); position: relative;
     }
     #screen-playing.qr-on #playing-qr .qr-card canvas { width: 200px; height: 200px; }
     #screen-playing.qr-on #playing-qr .qr-msg { font-size: 18px; }
-    #screen-playing.qr-on .playing-right { width: 34%; }
+    #screen-playing.qr-on .playing-right { width: 30%; }
     .queue-heading { font-size: 11px; font-weight: 800; letter-spacing: 0.22em; color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 1.25rem; }
     .queue-list { list-style: none; }
     .queue-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.24.0</p>
+<p class="version-badge">v1.25.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -3458,14 +3458,20 @@ async function fetchAccount() {
 }
 
 function startKeepAlive() {
-  // In-app up-next is fully event-driven now: a guest queueing (queueTrack -> fetchQueue),
-  // a track change (SDK onState -> fetchQueue), and a per-song scheduled refresh
-  // (scheduleInAppQueueRefresh). No blind interval poll needed. This remaining timer is
-  // NOT a Spotify call — it just reconnects the local Web Playback SDK if the device drops.
+  // Reconnect the local Web Playback SDK if the device drops (NOT a Spotify Web API call).
   setInterval(() => {
     if (outOfService) return;
     if (!deviceId && accessToken && spotifyPlayer) { try { spotifyPlayer.disconnect(); setTimeout(initPlayer, 1000); } catch(e) {} }
   }, 60000);
+  // Keep the up-next in sync with Spotify's ACTUAL queue while the playing screen is shown,
+  // so songs added from another Spotify app (external) appear here too. Only runs on the
+  // playing screen (not attract/idle) to keep the call rate modest.
+  setInterval(() => {
+    if (outOfService) return;
+    if (currentScreen !== 'playing') return;
+    if (document.getElementById('split-panel')?.classList.contains('open')) return;
+    fetchQueue();
+  }, 30000);
 }
 
 // ── INIT ──
