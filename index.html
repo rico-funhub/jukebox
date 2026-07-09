@@ -727,7 +727,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.13.0</p>
+<p class="version-badge">v1.14.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -851,6 +851,10 @@
     <div class="settings-row">
       <div class="settings-label">Active key<small>Which app the jukebox runs on now</small></div>
       <button class="s-btn" id="key-switch-btn" onclick="switchActiveKey(activeKey==='A'?'B':'A')" style="display:none;">Switch to Key B</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Auto-switch on rate limit<small>If a key gets rate-limited, switch to the other automatically</small></div>
+      <button class="s-btn" id="autoswitch-btn" onclick="toggleAutoSwitch()">On</button>
     </div>
     <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.6rem;">
       <div class="settings-label">Key A (Client ID)<small id="key-a-hint">not set</small></div>
@@ -1472,7 +1476,7 @@ async function api(url, opts = {}) {
   if (r.status === 429) {
     const retry = parseInt(r.headers.get('Retry-After') || '30');
     rateLimitUntil = Date.now() + (retry + 1) * 1000;
-    enterOutOfService();
+    if (!tryAutoSwitch()) enterOutOfService();
   }
   if (!r.ok) logError(apiErrorCode(r.status), url.split('?')[0]);
   return r;
@@ -1487,6 +1491,8 @@ let outOfService = localStorage.getItem('jukebox_oos') === '1';
 // Distinguishes a deliberate staff shutdown from an automatic rate-limit lockout.
 // Staff-closed must NOT auto-recover — only staff can reopen it.
 let closedByStaff = localStorage.getItem('jukebox_closed') === '1';
+// Auto-failover to the other key on a rate limit. Default ON (only acts if a 2nd key is set).
+let autoSwitch = localStorage.getItem('jukebox_autoswitch') !== 'off';
 
 function setOosMessage() {
   const title = document.getElementById('oos-title');
@@ -1512,6 +1518,26 @@ function enterOutOfService() {
   // No auto-probe. The kiosk stays offline until staff re-open it with the PIN,
   // which runs a real search test first (attemptReopen). We never tell a guest
   // "back in service" unless a real search just succeeded.
+}
+
+// Auto-failover: on a rate limit, if the other key is set and enabled, switch to it
+// automatically instead of going Out of Service. Anti-thrash: if we already switched
+// in the last 90s, BOTH keys are likely limited — go Out of Service instead of looping.
+function tryAutoSwitch() {
+  if (!autoSwitch) return false;
+  if (!otherKey()) return false;
+  const last = parseInt(localStorage.getItem('jukebox_last_autoswitch') || '0');
+  if (Date.now() - last < 90000) return false;
+  const target = activeKey === 'A' ? 'B' : 'A';
+  localStorage.setItem('jukebox_last_autoswitch', String(Date.now()));
+  localStorage.setItem('jukebox_autoswitch_pending', '1');
+  activeKey = target;
+  localStorage.setItem('jukebox_active_key', target);
+  localStorage.removeItem('jukebox_oos');
+  logError('E-API-429', 'auto-switching to ' + keyLabel(target));
+  clearTokens();
+  window.location.href = window.location.pathname;
+  return true;
 }
 
 // Staff-triggered shutdown. Reuses the OOS screen. Also no auto-recover.
@@ -2122,6 +2148,7 @@ function openSettings() {
   const etb = document.getElementById('explicit-toggle-btn'); if (etb) etb.textContent = hideExplicit ? 'On' : 'Off';
   const fcv = document.getElementById('free-cooldown-val'); if (fcv) fcv.textContent = cooldownLabel(freePlayCooldown);
   const tzs = document.getElementById('tz-select'); if (tzs) tzs.value = timeZone;
+  const asb = document.getElementById('autoswitch-btn'); if (asb) asb.textContent = autoSwitch ? 'On' : 'Off';
   renderPlaybackSettings();
   renderKeySettings();
   document.getElementById('cpt-val').textContent = creditsPerTap;
@@ -2167,7 +2194,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_free_cooldown','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_free_cooldown','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
@@ -2247,6 +2274,13 @@ function toggleOskSetting() {
 function updateFreeBadge() {
   const b = document.getElementById('free-badge');
   if (b) b.classList.toggle('on', freeMode && currentScreen !== 'auth');
+}
+
+function toggleAutoSwitch() {
+  autoSwitch = !autoSwitch;
+  localStorage.setItem('jukebox_autoswitch', autoSwitch ? 'on' : 'off');
+  const btn = document.getElementById('autoswitch-btn');
+  if (btn) btn.textContent = autoSwitch ? 'On' : 'Off';
 }
 
 function toggleFreeMode() {
@@ -3244,6 +3278,13 @@ async function init() {
 
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code'), state = params.get('state');
+  // Just auto-switched keys after a rate limit — reconnect the new key right away
+  // (silent if Spotify still remembers the authorization; one tap if not).
+  if (!code && localStorage.getItem('jukebox_autoswitch_pending') === '1') {
+    localStorage.removeItem('jukebox_autoswitch_pending');
+    startAuth();
+    return;
+  }
   if (code && state === sessionStorage.getItem('spotify_state')) {
     window.history.replaceState(null, '', window.location.pathname);
     if (await exchangeCode(code)) { showScreen('attract'); postAuthSetup(); return; }
