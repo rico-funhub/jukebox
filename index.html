@@ -575,7 +575,7 @@
 </div>
 
 <!-- NOW PLAYING -->
-<div id="screen-playing" class="screen" onclick="attractTap()">
+<div id="screen-playing" class="screen" onclick="if(canPick())openSongPicker()">
   <div class="playing-bg" id="playing-bg"></div>
 
   <div class="playing-left">
@@ -727,7 +727,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.11.0</p>
+<p class="version-badge">v1.11.1</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -770,10 +770,6 @@
     <div class="settings-row">
       <div class="settings-label">Free mode<small>No card needed — guests pick songs for free</small></div>
       <button class="s-btn" id="free-toggle-btn" onclick="toggleFreeMode()">Off</button>
-    </div>
-    <div class="settings-row">
-      <div class="settings-label">Tap screen to play<small>A tap on the idle screen adds one credit (touch-to-play)</small></div>
-      <button class="s-btn" id="tap-credit-btn" onclick="toggleTapCredit()">Off</button>
     </div>
     <div class="settings-row">
       <div class="settings-label">Free-play cooldown<small>Wait between free songs (0 = off). Free mode only.</small></div>
@@ -1025,9 +1021,6 @@ let freeMode = localStorage.getItem('jukebox_free') === 'on';
 let freePlayCooldown = parseInt(localStorage.getItem('jukebox_free_cooldown') || '30');
 let freeCooldownUntil = 0;
 let cooldownTimer = null;
-// When on, tapping the idle screen inserts a credit (touch-to-play), instead of
-// the screen doing nothing until a card/coin. Off by default (paid venues).
-let tapCredit = localStorage.getItem('jukebox_tap_credit') === 'on';
 // Hide explicit tracks from search. Defaults ON (family venue) unless a value is saved.
 let hideExplicit = localStorage.getItem('jukebox_hide_explicit') !== 'off';
 let settingsTaps = 0, settingsTapTimer = null;
@@ -1082,14 +1075,14 @@ function loadErrors() {
 // ── LANGUAGE ──
 const T = {
   en: {
-    tap: 'TAP YOUR CARD', tapPlay: 'TAP TO PLAY A SONG', sub: 'to pick a song!',
+    tap: 'TAP YOUR CARD', tapPlay: 'TOUCH TO PLAY', sub: 'to pick a song!',
     nowPlaying: 'Now playing', upNext: 'Up next',
     tapAdd: 'TAP YOUR CARD TO ADD A SONG!',
     searchPh: 'What song do you want?', searching: 'Searching...', noResults: 'No results found.', back: 'Back', added: 'Added! Pick another song', searchError: 'Search unavailable. Please tell a staff member.', noDevice: 'Player not ready — please tell a staff member.',
     splitPh: 'Search for a song...', queueEmpty: 'Tap your card to add\nthe next song!'
   },
   fr: {
-    tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TAPPEZ POUR JOUER UNE CHANSON', sub: 'pour choisir une chanson!',
+    tap: 'TAPPEZ VOTRE CARTE', tapPlay: 'TOUCHEZ POUR JOUER', sub: 'pour choisir une chanson!',
     nowPlaying: 'En cours', upNext: 'À venir',
     tapAdd: 'TAPPEZ VOTRE CARTE POUR AJOUTER UNE CHANSON!',
     searchPh: 'Quelle chanson voulez-vous?', searching: 'Recherche en cours...', noResults: 'Aucun résultat.', back: 'Retour', added: 'Ajoutée! Choisis une autre chanson', searchError: 'Recherche indisponible. Avertis un employé.', noDevice: 'Lecteur non prêt — avertis un employé.',
@@ -1162,9 +1155,7 @@ function tickCooldown() {
 }
 
 function attractTap() {
-  if (canPick()) { openSongPicker(); return; }
-  // No credit yet: if touch-to-play is enabled, a tap acts as a coin.
-  if (tapCredit && !cooldownActive()) triggerCoin();
+  if (canPick()) openSongPicker();
 }
 
 // Single source of truth for letting a guest pick a song.
@@ -1183,7 +1174,7 @@ function updateAttractText() {
   const t = T[lang];
   const tapEl = document.getElementById('attract-tap');
   if (tapEl) {
-    const canGo = (canPick() || tapCredit) && !isPlaying;
+    const canGo = canPick() && !isPlaying;
     tapEl.textContent = canGo ? t.tapPlay : t.tap;
     tapEl.classList.toggle('tap-to-play', canGo);
   }
@@ -2084,7 +2075,6 @@ function openSettings() {
   renderCoinLines();
   const otb = document.getElementById('osk-toggle-btn'); if (otb) otb.textContent = oskEnabled ? 'On' : 'Off';
   const ftb = document.getElementById('free-toggle-btn'); if (ftb) ftb.textContent = freeMode ? 'On' : 'Off';
-  const tcb = document.getElementById('tap-credit-btn'); if (tcb) tcb.textContent = tapCredit ? 'On' : 'Off';
   const etb = document.getElementById('explicit-toggle-btn'); if (etb) etb.textContent = hideExplicit ? 'On' : 'Off';
   const fcv = document.getElementById('free-cooldown-val'); if (fcv) fcv.textContent = cooldownLabel(freePlayCooldown);
   renderPlaybackSettings();
@@ -2128,7 +2118,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_tap_credit','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_free_cooldown','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_free_cooldown','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
@@ -2208,14 +2198,6 @@ function toggleOskSetting() {
 function updateFreeBadge() {
   const b = document.getElementById('free-badge');
   if (b) b.classList.toggle('on', freeMode && currentScreen !== 'auth');
-}
-
-function toggleTapCredit() {
-  tapCredit = !tapCredit;
-  localStorage.setItem('jukebox_tap_credit', tapCredit ? 'on' : 'off');
-  const btn = document.getElementById('tap-credit-btn');
-  if (btn) btn.textContent = tapCredit ? 'On' : 'Off';
-  updateAttractText();
 }
 
 function toggleFreeMode() {
