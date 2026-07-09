@@ -463,6 +463,8 @@
     .settings-box { background: #141414; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 2.5rem; width: 420px; max-width: 92vw; max-height: 80vh; overflow-y: auto; }
     .settings-logo { width: 120px; object-fit: contain; margin: 0 auto 1.5rem; display: block; opacity: 0.9; }
     .settings-title { font-size: 11px; font-weight: 800; letter-spacing: 0.22em; color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 1.75rem; text-align: center; }
+    .s-sec { width: 100%; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; color: #1DB954; text-transform: uppercase; margin: 1.5rem 0 0.25rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.4rem; }
+    .s-sec:first-of-type { margin-top: 0; }
     .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 0; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 1rem; }
     .settings-row:last-child { border-bottom: none; }
     .settings-label { font-size: 15px; color: rgba(255,255,255,0.8); flex: 1; }
@@ -725,7 +727,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.9.0</p>
+<p class="version-badge">v1.10.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -760,12 +762,31 @@
     <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="settings-logo" alt="FUNHUB" />
     <p class="settings-title">Operator Settings</p>
 
+    <div class="s-sec">This shift</div>
     <div class="settings-row">
       <div class="settings-label">Credits loaded<small id="s-credits-loaded">0 credits</small></div>
       <button class="s-btn danger" onclick="settingsClearCredits()">Clear</button>
     </div>
     <div class="settings-row">
-      <div class="settings-label">Credits per tap<small>Each card tap adds this many credits</small></div>
+      <div class="settings-label">Free mode<small>No card needed — guests pick songs for free</small></div>
+      <button class="s-btn" id="free-toggle-btn" onclick="toggleFreeMode()">Off</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Free-play cooldown<small>Wait between free songs (0 = off). Free mode only.</small></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="s-btn" onclick="adjustFreeCooldown(-15)" style="padding:4px 12px;">−</button>
+        <span id="free-cooldown-val" style="font-size:14px;font-weight:700;min-width:56px;text-align:center;">30s</span>
+        <button class="s-btn" onclick="adjustFreeCooldown(15)" style="padding:4px 12px;">+</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Take jukebox offline<small>Shows guests a "closed" screen until you reopen it (staff PIN)</small></div>
+      <button class="s-btn" onclick="confirmTakeOffline()" style="border-color:rgba(255,112,112,0.4);color:#ff7070;">⏸ Take offline</button>
+    </div>
+
+    <div class="s-sec">Pricing</div>
+    <div class="settings-row">
+      <div class="settings-label">Default credits per coin<small>Used unless a coin line sets its own value</small></div>
       <div class="s-stepper">
         <button onclick="adjustCpt(-1)">−</button>
         <span id="cpt-val">1</span>
@@ -780,30 +801,35 @@
         <button onclick="adjustCps(1)">+</button>
       </div>
     </div>
-    <div class="settings-row">
-      <div class="settings-label">Reset playback<small>Stops current song, starts fresh with September</small></div>
-      <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.4rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div class="settings-label">Coin lines<small>Up to 5 coin mechanisms, counted separately</small></div>
+        <button class="s-btn" onclick="resetCoinCounts()" style="padding:0 12px;font-size:12px;">Reset counts</button>
+      </div>
+      <div id="coin-lines" style="width:100%;"></div>
     </div>
-    <div class="settings-row">
-      <div class="settings-label">Take jukebox offline<small>Shows guests a "closed" screen until you reopen it (staff PIN)</small></div>
-      <button class="s-btn" onclick="confirmTakeOffline()" style="border-color:rgba(255,112,112,0.4);color:#ff7070;">⏸ Take offline</button>
-    </div>
-    <div class="settings-row">
-      <div class="settings-label">Free mode<small>No card needed — guests pick songs for free</small></div>
-      <button class="s-btn" id="free-toggle-btn" onclick="toggleFreeMode()">Off</button>
-    </div>
+
+    <div class="s-sec">Music</div>
     <div class="settings-row">
       <div class="settings-label">Hide explicit songs<small>Filters explicit-flagged tracks from search</small></div>
       <button class="s-btn" id="explicit-toggle-btn" onclick="toggleHideExplicit()">On</button>
     </div>
-    <div class="settings-row">
-      <div class="settings-label">Free-play cooldown<small>Wait between free songs (0 = off). Free mode only.</small></div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <button class="s-btn" onclick="adjustFreeCooldown(-15)" style="padding:4px 12px;">−</button>
-        <span id="free-cooldown-val" style="font-size:14px;font-weight:700;min-width:56px;text-align:center;">30s</span>
-        <button class="s-btn" onclick="adjustFreeCooldown(15)" style="padding:4px 12px;">+</button>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div class="settings-label">Blocked songs / artists<small>Search results will hide these</small></div>
       </div>
+      <div style="display:flex;gap:8px;width:100%;">
+        <input id="blacklist-input" placeholder="Artist or song name..." style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:14px;color:#fff;font-family:inherit;outline:none;" />
+        <button class="s-btn" onclick="addToBlacklist(document.getElementById('blacklist-input').value.trim()); document.getElementById('blacklist-input').value=''; renderBlacklist();">Block</button>
+      </div>
+      <div id="blacklist-items" style="width:100%;"></div>
     </div>
+    <div class="settings-row">
+      <div class="settings-label">Reset playback<small>Stops current song, starts fresh with September</small></div>
+      <button class="s-btn" onclick="settingsResetQueue()">🎵 September</button>
+    </div>
+
+    <div class="s-sec">Playback device</div>
     <div class="settings-row">
       <div class="settings-label">Playback<small>In-app player, or send to another Spotify device</small></div>
       <button class="s-btn" id="playback-mode-btn" onclick="togglePlaybackMode()">In-app player</button>
@@ -817,7 +843,7 @@
       <div id="device-list" style="width:100%;"></div>
     </div>
 
-    <!-- APP KEYS (two Premium apps = two rate-limit buckets) -->
+    <div class="s-sec">Spotify connection</div>
     <div class="settings-row">
       <div class="settings-label">Connected account<small>Spotify account playing now, on <span id="connected-keyname">Key A</span></small></div>
       <div style="font-size:14px;color:#1DB954;font-weight:700;max-width:50%;text-align:right;word-break:break-word;" id="connected-account">—</div>
@@ -842,50 +868,26 @@
       <small style="font-size:11px;color:rgba(255,255,255,0.3);">Both must be Premium apps from the Spotify Developer Dashboard, each with Redirect URI https://rico-funhub.github.io/jukebox. Two keys = two separate rate-limit buckets; if one is cooling down, switch to the other. Switching the active key reconnects Spotify.</small>
     </div>
     <div class="settings-row">
+      <div class="settings-label">Reload &amp; reconnect<small>Fixes most connection hiccups (keeps settings)</small></div>
+      <button class="s-btn" onclick="window.location.href='https://rico-funhub.github.io/jukebox/?reset=1'">Reconnect</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Disconnect Spotify<small>Log out of the Spotify account</small></div>
+      <button class="s-btn danger" onclick="settingsDisconnect()">Disconnect</button>
+    </div>
+
+    <div class="s-sec">This kiosk</div>
+    <div class="settings-row">
       <div class="settings-label">On-screen keyboard<small>Built-in keyboard for touchscreens</small></div>
       <button class="s-btn" id="osk-toggle-btn" onclick="toggleOskSetting()">On</button>
-    </div>
-    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.4rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-        <div class="settings-label">Coin lines<small>Up to 5 coin mechanisms, counted separately</small></div>
-        <button class="s-btn" onclick="resetCoinCounts()" style="padding:0 12px;font-size:12px;">Reset counts</button>
-      </div>
-      <div id="coin-lines" style="width:100%;"></div>
     </div>
     <div class="settings-row">
       <div class="settings-label">Change PIN<small>Must be 4 digits</small></div>
       <button class="s-btn" onclick="settingsChangePin()">Change</button>
     </div>
-    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.5rem;">
-      <div class="settings-label">Recent errors<small id="err-summary">None</small></div>
-      <div id="err-log" style="width:100%;font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.7;max-height:120px;overflow-y:auto;"></div>
-    </div>
-    <div class="settings-row">
-      <div class="settings-label">Having problems?<small>Reload and reconnect Spotify</small></div>
-      <button class="s-btn" onclick="window.location.href='https://rico-funhub.github.io/jukebox/?reset=1'">Reconnect</button>
-    </div>
-    <div class="settings-row">
-      <div class="settings-label">Disconnect Spotify<small>Reconnect account</small></div>
-      <button class="s-btn danger" onclick="settingsDisconnect()">Disconnect</button>
-    </div>
-    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;">
-      <div class="settings-label">Today's revenue<small id="rev-summary">Loading...</small></div>
-      <div id="rev-top" style="width:100%;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.8;"></div>
-    </div>
-    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-        <div class="settings-label">Blocked songs / artists<small>Search results will hide these</small></div>
-      </div>
-      <div style="display:flex;gap:8px;width:100%;">
-        <input id="blacklist-input" placeholder="Artist or song name..." style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:14px;color:#fff;font-family:inherit;outline:none;" />
-        <button class="s-btn" onclick="addToBlacklist(document.getElementById('blacklist-input').value.trim()); document.getElementById('blacklist-input').value=''; renderBlacklist();">Block</button>
-      </div>
-      <div id="blacklist-items" style="width:100%;"></div>
-    </div>
 
-    <!-- TECHNICIAN -->
-    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;border-top:1px solid rgba(255,255,255,0.12);padding-top:1rem;">
-      <div class="settings-label">🔧 Technician<small>Diagnostics & backup</small></div>
+    <div class="s-sec">🔧 Technician</div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;">
       <div style="display:flex;gap:8px;width:100%;flex-wrap:wrap;">
         <button class="s-btn" onclick="testConnection()">🔌 Test connection</button>
         <button class="s-btn" onclick="exportSettings()">⬇️ Export settings</button>
@@ -893,7 +895,15 @@
         <input type="file" id="restore-file" accept="application/json,.json" style="display:none;" onchange="restoreSettings(this)" />
       </div>
       <p id="test-conn-result" style="width:100%;font-size:13px;color:rgba(255,255,255,0.5);min-height:18px;"></p>
-      <small style="font-size:11px;color:rgba(255,255,255,0.3);line-height:1.5;">Export saves a settings file (keys, nicknames, PIN, toggles) to clone this kiosk or back it up — keep it private, it contains the PIN. Restore replaces this kiosk's settings and reconnects Spotify.</small>
+      <small style="font-size:11px;color:rgba(255,255,255,0.3);line-height:1.5;">Export saves a settings file (keys, nicknames, PIN, toggles, coin lines) to clone this kiosk or back it up — keep it private, it contains the PIN. Restore replaces this kiosk's settings and reconnects Spotify.</small>
+    </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.5rem;">
+      <div class="settings-label">Recent errors<small id="err-summary">None</small></div>
+      <div id="err-log" style="width:100%;font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.7;max-height:120px;overflow-y:auto;"></div>
+    </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.75rem;">
+      <div class="settings-label">Play summary<small id="rev-summary">Loading...</small></div>
+      <div id="rev-top" style="width:100%;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.8;"></div>
     </div>
   </div>
   <div style="display:flex;gap:12px;">
@@ -2049,7 +2059,7 @@ function openSettings() {
   document.getElementById('cps-val').textContent = creditsPerSong;
   const rev = getRevenueReport();
   const revSummary = document.getElementById('rev-summary');
-  if (revSummary) revSummary.textContent = rev.credits + ' credits inserted · ' + rev.songs + ' songs played';
+  if (revSummary) revSummary.textContent = rev.songs + ' songs played today';
   const revTop = document.getElementById('rev-top');
   if (revTop) revTop.innerHTML = rev.top.length
     ? '<strong style="color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:0.1em;">TOP SONGS TODAY</strong><br>' + rev.top.map(([s,c]) => `${s} <span style="color:#1DB954">(${c}x)</span>`).join('<br>')
