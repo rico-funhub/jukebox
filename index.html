@@ -716,7 +716,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.6.0</p>
+<p class="version-badge">v1.7.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -828,9 +828,12 @@
       <div class="settings-label">On-screen keyboard<small>Built-in keyboard for touchscreens</small></div>
       <button class="s-btn" id="osk-toggle-btn" onclick="toggleOskSetting()">On</button>
     </div>
-    <div class="settings-row">
-      <div class="settings-label">Coin / card input<small>Current: <span id="coin-key-display">T</span></small></div>
-      <button class="s-btn" id="coin-map-btn" onclick="startCoinMapping()">Remap</button>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:0.4rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div class="settings-label">Coin lines<small>Up to 5 coin mechanisms, counted separately</small></div>
+        <button class="s-btn" onclick="resetCoinCounts()" style="padding:0 12px;font-size:12px;">Reset counts</button>
+      </div>
+      <div id="coin-lines" style="width:100%;"></div>
     </div>
     <div class="settings-row">
       <div class="settings-label">Change PIN<small>Must be 4 digits</small></div>
@@ -967,12 +970,27 @@ let credits = 0;
 let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
 let creditsPerSong = parseInt(localStorage.getItem('jukebox_cps') || '1');
 let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
-let coinKey = localStorage.getItem('jukebox_coin_key') || 't';
+// Up to 5 coin lines (separate physical coin mechanisms), each mapped to its own
+// key or gamepad button. Empty slot = null. Migrate any old single-key binding into line 1.
+let coinLines = (function() {
+  try { const s = JSON.parse(localStorage.getItem('jukebox_coin_lines')); if (Array.isArray(s)) return s.slice(0,5).concat([null,null,null,null,null]).slice(0,5); } catch(e) {}
+  const ok = localStorage.getItem('jukebox_coin_key');
+  const ol = localStorage.getItem('jukebox_coin_key_label');
+  return [ ok ? { key: ok, label: ol || ok.toUpperCase() } : { key: 't', label: 'T' }, null, null, null, null ];
+})();
+// Running play/credit count per line (index 0-4).
+let coinCounts = (function() {
+  try { const s = JSON.parse(localStorage.getItem('jukebox_coin_counts')); if (Array.isArray(s)) return s.slice(0,5).concat([0,0,0,0,0]).slice(0,5); } catch(e) {}
+  return [0,0,0,0,0];
+})();
+function saveCoinLines() { localStorage.setItem('jukebox_coin_lines', JSON.stringify(coinLines)); }
+function saveCoinCounts() { localStorage.setItem('jukebox_coin_counts', JSON.stringify(coinCounts)); }
+// Which line (if any) is bound to this keyboard key? Returns index or -1.
+function lineForKey(k) { for (let i = 0; i < coinLines.length; i++) { if (coinLines[i] && coinLines[i].key === k) return i; } return -1; }
 let oskEnabled = localStorage.getItem('jukebox_osk') !== 'off';
 let freeMode = localStorage.getItem('jukebox_free') === 'on';
 // Hide explicit tracks from search. Defaults ON (family venue) unless a value is saved.
 let hideExplicit = localStorage.getItem('jukebox_hide_explicit') !== 'off';
-let coinKeyLabel = localStorage.getItem('jukebox_coin_key_label') || 'T';
 let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
 let idleTimer = null;
@@ -1884,27 +1902,24 @@ function renderSearchResults(tracks, resultsId, statusId, small) {
   }).join('');
 }
 
-// ── T KEY / CARD TAP ──
+// ── COIN KEY / CARD TAP ──
 document.addEventListener('keydown', e => {
-  // Coin key mapping
-  if (listeningForCoinKey) {
+  // Mapping mode: bind the pressed key to the line being remapped.
+  if (mappingLine >= 0) {
     e.preventDefault();
-    coinKey = e.key.toLowerCase();
-    coinKeyLabel = e.key.length === 1 ? e.key.toUpperCase() : e.code;
-    localStorage.setItem('jukebox_coin_key', coinKey);
-    localStorage.setItem('jukebox_coin_key_label', coinKeyLabel);
-    listeningForCoinKey = false;
-    const el = document.getElementById('coin-key-display');
-    if (el) el.textContent = coinKeyLabel;
-    const btn = document.getElementById('coin-map-btn');
-    if (btn) { btn.textContent = 'Remap'; btn.style.background = ''; }
+    const key = e.key.toLowerCase();
+    const label = e.key.length === 1 ? e.key.toUpperCase() : e.code;
+    coinLines[mappingLine] = { key, label };
+    saveCoinLines();
+    finishCoinMapping();
     return;
   }
-  if (e.key.toLowerCase() !== coinKey) return;
+  const li = lineForKey(e.key.toLowerCase());
+  if (li < 0) return;
   // OSK off = real keyboard in use: let typing into inputs pass through
   if (!oskEnabled && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   e.preventDefault();
-  triggerCoin();
+  triggerCoin(li);
 });
 
 // ── SETTINGS ──
@@ -1953,7 +1968,7 @@ function checkPin(val) {
 
 function openSettings() {
   document.getElementById('s-credits-loaded').textContent = credits + ' credits';
-  const ckd = document.getElementById('coin-key-display'); if (ckd) ckd.textContent = coinKeyLabel;
+  renderCoinLines();
   const otb = document.getElementById('osk-toggle-btn'); if (otb) otb.textContent = oskEnabled ? 'On' : 'Off';
   const ftb = document.getElementById('free-toggle-btn'); if (ftb) ftb.textContent = freeMode ? 'On' : 'Off';
   const etb = document.getElementById('explicit-toggle-btn'); if (etb) etb.textContent = hideExplicit ? 'On' : 'Off';
@@ -2304,40 +2319,72 @@ function showHelpTab(tab) {
 
 
 
-function startCoinMapping() {
-  listeningForCoinKey = true;
-  const btn = document.getElementById('coin-map-btn');
-  if (btn) { btn.textContent = 'Press any key...'; btn.style.background = 'rgba(29,185,84,0.2)'; }
-  // Also detect gamepad buttons
-  const gpInterval = setInterval(() => {
+let mapGpInterval = null, mapTimeout = null;
+
+function startCoinMapping(lineIndex) {
+  mappingLine = lineIndex;
+  renderCoinLines();
+  // Detect a gamepad button press to bind to this line.
+  mapGpInterval = setInterval(() => {
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (const gp of gamepads) {
       if (!gp) continue;
-      gp.buttons.forEach((btn, idx) => {
-        if (btn.pressed && listeningForCoinKey) {
-          coinKey = `gamepad_${idx}`;
-          coinKeyLabel = `Gamepad B${idx}`;
-          localStorage.setItem('jukebox_coin_key', coinKey);
-          localStorage.setItem('jukebox_coin_key_label', coinKeyLabel);
-          listeningForCoinKey = false;
-          clearInterval(gpInterval);
-          const el = document.getElementById('coin-key-display');
-          if (el) el.textContent = coinKeyLabel;
-          const mapBtn = document.getElementById('coin-map-btn');
-          if (mapBtn) { mapBtn.textContent = 'Remap'; mapBtn.style.background = ''; }
+      for (let idx = 0; idx < gp.buttons.length; idx++) {
+        if (gp.buttons[idx].pressed && mappingLine >= 0) {
+          coinLines[mappingLine] = { key: `gamepad_${idx}`, label: `Gamepad B${idx}` };
+          saveCoinLines();
+          finishCoinMapping();
+          return;
         }
-      });
+      }
     }
   }, 50);
-  // Stop listening after 10s
-  setTimeout(() => {
-    if (listeningForCoinKey) {
-      listeningForCoinKey = false;
-      clearInterval(gpInterval);
-      const btn = document.getElementById('coin-map-btn');
-      if (btn) { btn.textContent = 'Remap'; btn.style.background = ''; }
-    }
-  }, 10000);
+  // Give up listening after 10s.
+  mapTimeout = setTimeout(() => { if (mappingLine >= 0) finishCoinMapping(); }, 10000);
+}
+
+function finishCoinMapping() {
+  mappingLine = -1;
+  if (mapGpInterval) { clearInterval(mapGpInterval); mapGpInterval = null; }
+  if (mapTimeout) { clearTimeout(mapTimeout); mapTimeout = null; }
+  renderCoinLines();
+}
+
+function clearCoinLine(lineIndex) {
+  // Line 1 can't be emptied — the jukebox needs at least one coin input.
+  if (lineIndex === 0) { alert('Coin line 1 is required and can\'t be removed. Remap it instead.'); return; }
+  coinLines[lineIndex] = null;
+  saveCoinLines();
+  renderCoinLines();
+}
+
+function resetCoinCounts() {
+  if (!confirm('Reset all coin-line play counts to zero?')) return;
+  coinCounts = [0,0,0,0,0];
+  saveCoinCounts();
+  renderCoinLines();
+}
+
+// Build the 5 coin-line rows in settings.
+function renderCoinLines() {
+  const box = document.getElementById('coin-lines');
+  if (!box) return;
+  let html = '';
+  for (let i = 0; i < 5; i++) {
+    const line = coinLines[i];
+    const mapping = (mappingLine === i);
+    const label = mapping ? 'Press a key or button…' : (line ? line.label : 'not set');
+    const count = coinCounts[i] || 0;
+    html += `<div style="display:flex;align-items:center;gap:8px;width:100%;padding:6px 0;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:600;">Line ${i+1}<span style="color:rgba(255,255,255,0.35);font-weight:400;"> · ${label}</span></div>
+        <div style="font-size:12px;color:#1DB954;">${count} play${count===1?'':'s'}</div>
+      </div>
+      <button class="s-btn" onclick="startCoinMapping(${i})">${line ? 'Remap' : 'Map'}</button>
+      ${i>0 ? `<button class="s-btn" onclick="clearCoinLine(${i})" style="padding:0 12px;">✕</button>` : ''}
+    </div>`;
+  }
+  box.innerHTML = html;
 }
 
 function settingsChangePin() {
@@ -2657,7 +2704,7 @@ function getRevenueReport() {
 
 // ── STAFF PANEL ──
 let staffSearchTimer = null;
-let listeningForCoinKey = false;
+let mappingLine = -1;
 let staffPlaying = false;
 
 function openStaff() {
@@ -2837,14 +2884,21 @@ function retryFromError() {
 // True only while the mapped gamepad button is held — persists across polls.
 // (getGamepads() returns a fresh snapshot each call, so the flag can't live on
 // the button object or it'd never persist and coins would spam while held.)
-let gpCoinDown = false;
+// Per-line "button is currently held" flags for gamepad edge detection (persist
+// across polls; can't live on the transient button object).
+let gpLineDown = [false, false, false, false, false];
 
 // Shared coin action for keyboard + gamepad, with the same staff-overlay guard.
-function triggerCoin() {
+// lineIndex identifies which coin line fired (for per-line counts); -1 if unknown.
+function triggerCoin(lineIndex) {
   if (document.getElementById('pin-overlay').classList.contains('open')) return;
   if (document.getElementById('settings-overlay').classList.contains('open')) return;
   if (document.getElementById('staff-overlay').classList.contains('open')) return;
   coinSound();
+  if (typeof lineIndex === 'number' && lineIndex >= 0 && lineIndex < coinCounts.length) {
+    coinCounts[lineIndex] = (coinCounts[lineIndex] || 0) + 1;
+    saveCoinCounts();
+  }
   if (freeMode) { openSongPicker(); return; }
   credits += creditsPerTap;
   updateCredits();
@@ -2855,15 +2909,19 @@ function triggerCoin() {
 
 function startGamepadCoinPoll() {
   setInterval(() => {
-    if (!coinKey.startsWith('gamepad_')) { gpCoinDown = false; return; }
-    const idx = parseInt(coinKey.replace('gamepad_', ''));
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-    let pressed = false;
-    for (const gp of gamepads) {
-      if (gp && gp.buttons[idx] && gp.buttons[idx].pressed) { pressed = true; break; }
+    // Check each coin line that's bound to a gamepad button, independently.
+    for (let li = 0; li < coinLines.length; li++) {
+      const line = coinLines[li];
+      if (!line || !line.key.startsWith('gamepad_')) { gpLineDown[li] = false; continue; }
+      const idx = parseInt(line.key.replace('gamepad_', ''));
+      let pressed = false;
+      for (const gp of gamepads) {
+        if (gp && gp.buttons[idx] && gp.buttons[idx].pressed) { pressed = true; break; }
+      }
+      if (pressed && !gpLineDown[li]) { gpLineDown[li] = true; triggerCoin(li); }
+      else if (!pressed) { gpLineDown[li] = false; }
     }
-    if (pressed && !gpCoinDown) { gpCoinDown = true; triggerCoin(); }
-    else if (!pressed) { gpCoinDown = false; }
   }, 50);
 }
 
