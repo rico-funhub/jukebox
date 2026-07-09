@@ -89,6 +89,16 @@
     .qr-card { background: #fff; padding: 14px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); line-height: 0; }
     .qr-card canvas { display: block; width: 240px; height: 240px; image-rendering: pixelated; }
     .qr-msg { font-size: 22px; font-weight: 800; color: #fff; text-align: center; max-width: 90%; line-height: 1.25; }
+    /* QR-only billboard screen (no Spotify): floating code + zooming text */
+    #screen-qr { flex-direction: column; align-items: center; justify-content: center; background: #080808; gap: 0; text-align: center; }
+    #screen-qr .billboard-logo { width: 180px; opacity: 0.9; margin-bottom: 2.2rem; }
+    #screen-qr .qr-card { padding: 20px; }
+    #screen-qr .qr-card canvas { width: 300px; height: 300px; }
+    #screen-qr .qr-msg { font-size: 30px; margin-top: 2.6rem; max-width: 80%; }
+    @keyframes qrFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
+    @keyframes qrZoom  { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+    .qr-float { animation: qrFloat 3.6s ease-in-out infinite; }
+    .qr-zoom  { display: inline-block; animation: qrZoom 2.3s ease-in-out infinite; }
     /* Attract split: left = normal content, right = QR */
     #attract-qr { display: none; }
     #screen-attract.qr-on { flex-direction: row; gap: 0; }
@@ -737,6 +747,14 @@
   </div>
 </div>
 
+<!-- QR-ONLY BILLBOARD (no Spotify) -->
+<div id="screen-qr" class="screen">
+  <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" class="billboard-logo" alt="FUNHUB" />
+  <div class="qr-card qr-float"><canvas id="qr-only-canvas"></canvas></div>
+  <p class="qr-msg qr-zoom" id="qr-only-msg">Got a song? Scan with your phone to request it</p>
+  <p id="qr-only-empty" style="display:none;color:rgba(255,255,255,0.5);font-size:18px;margin-top:2rem;">Set a request link in settings to show the code.</p>
+</div>
+
 <!-- FREE-PLAY COOLDOWN -->
 <div id="cooldown-overlay" onclick="handleSettingsTap()" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.92);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;">
   <img src="https://images.squarespace-cdn.com/content/v1/674abd042502920e4f688885/79781a1d-ccf0-498b-a57a-ba40549bb239/funhub-logo-FINAL-no-tag-white2.png" style="width:130px;margin-bottom:1.5rem;" alt="FUNHUB" />
@@ -761,7 +779,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.20.0</p>
+<p class="version-badge">v1.21.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -864,6 +882,10 @@
     </div>
 
     <div class="s-sec">External song request</div>
+    <div class="settings-row">
+      <div class="settings-label">QR-only billboard<small>Kiosk shows just the floating request QR — no music, no Spotify. Reloads when changed.</small></div>
+      <button class="s-btn" id="qr-only-btn" onclick="toggleQrOnly()">Off</button>
+    </div>
     <div class="settings-row">
       <div class="settings-label">QR on attract screen<small>Splits attract: left = tap to play, right = request QR</small></div>
       <button class="s-btn" id="qr-attract-btn" onclick="toggleQrAttract()">Off</button>
@@ -1292,7 +1314,7 @@ function updateAttractText() {
 function showScreen(id) {
   // While out of service, nothing may leave the lockout except the lockout logic
   // itself (which shows 'oos') or a hard reset (which shows 'auth').
-  if (outOfService && id !== 'oos' && id !== 'auth' && id !== 'setup') return;
+  if (outOfService && id !== 'oos' && id !== 'auth' && id !== 'setup' && id !== 'qr') return;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + id).classList.add('active');
   currentScreen = id;
@@ -1555,6 +1577,8 @@ let autoSwitch = localStorage.getItem('jukebox_autoswitch') !== 'off';
 let qrUrl = localStorage.getItem('jukebox_qr_url') || '';
 let qrAttract = localStorage.getItem('jukebox_qr_attract') === 'on';
 let qrPlaying = localStorage.getItem('jukebox_qr_playing') === 'on';
+// QR-only billboard mode: kiosk shows ONLY the floating request QR, no Spotify at all.
+let qrOnly = localStorage.getItem('jukebox_qr_only') === 'on';
 
 function setOosMessage() {
   const title = document.getElementById('oos-title');
@@ -2220,6 +2244,7 @@ function openSettings() {
   const tzs = document.getElementById('tz-select'); if (tzs) tzs.value = timeZone;
   const asb = document.getElementById('autoswitch-btn'); if (asb) asb.textContent = autoSwitch ? 'On' : 'Off';
   const qab = document.getElementById('qr-attract-btn'); if (qab) qab.textContent = qrAttract ? 'On' : 'Off';
+  const qob = document.getElementById('qr-only-btn'); if (qob) qob.textContent = qrOnly ? 'On' : 'Off';
   const qpb = document.getElementById('qr-playing-btn'); if (qpb) qpb.textContent = qrPlaying ? 'On' : 'Off';
   const qui = document.getElementById('qr-url-input'); if (qui) qui.value = qrUrl;
   renderPlaybackSettings();
@@ -2267,7 +2292,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_free_cooldown','jukebox_qr_url','jukebox_qr_attract','jukebox_qr_playing','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_free_cooldown','jukebox_qr_url','jukebox_qr_attract','jukebox_qr_playing','jukebox_qr_only','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
@@ -2382,6 +2407,15 @@ function applyQrScreens() {
   const pOn = qrPlaying && !!qrUrl;
   if (pScreen) pScreen.classList.toggle('qr-on', pOn);
   if (pOn) { drawQR('playing-qr-canvas', qrUrl); setTxt('playing-qr-msg', msg); }
+}
+
+// Billboard mode changes what runs at boot (no Spotify), so reload to enter/leave cleanly.
+function toggleQrOnly() {
+  qrOnly = !qrOnly;
+  localStorage.setItem('jukebox_qr_only', qrOnly ? 'on' : 'off');
+  const b = document.getElementById('qr-only-btn'); if (b) b.textContent = qrOnly ? 'On' : 'Off';
+  if (qrOnly && !qrUrl) alert('Tip: add a Request link below — the billboard needs it to show a code.');
+  setTimeout(() => { location.href = location.pathname; }, 500);
 }
 
 function toggleQrAttract() {
@@ -3390,6 +3424,19 @@ async function init() {
     outOfService = false;
     closedByStaff = false;
     if (haveKey()) { showScreen('auth'); } else { renderSetupState(); showScreen('setup'); }
+    return;
+  }
+
+  // QR-only billboard mode: pure floating request QR, zero Spotify (no key/auth/player needed).
+  // Staff 5-tap (top-centre) still opens the PIN → settings to turn it back off.
+  if (qrOnly) {
+    const msg = document.getElementById('qr-only-msg');
+    if (msg) msg.textContent = (T[lang] && T[lang].scanRequest) || msg.textContent;
+    const card = document.querySelector('#screen-qr .qr-card');
+    const empty = document.getElementById('qr-only-empty');
+    if (qrUrl) { drawQR('qr-only-canvas', qrUrl); if (card) card.style.display = ''; if (empty) empty.style.display = 'none'; }
+    else { if (card) card.style.display = 'none'; if (empty) empty.style.display = 'block'; }
+    showScreen('qr');
     return;
   }
 
