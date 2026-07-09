@@ -716,7 +716,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.5.0</p>
+<p class="version-badge">v1.5.1</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -782,6 +782,10 @@
     <div class="settings-row">
       <div class="settings-label">Free mode<small>No card needed — guests pick songs for free</small></div>
       <button class="s-btn" id="free-toggle-btn" onclick="toggleFreeMode()">Off</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Hide explicit songs<small>Filters explicit-flagged tracks from search</small></div>
+      <button class="s-btn" id="explicit-toggle-btn" onclick="toggleHideExplicit()">On</button>
     </div>
     <div class="settings-row">
       <div class="settings-label">Playback<small>In-app player, or send to another Spotify device</small></div>
@@ -953,6 +957,8 @@ let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
 let coinKey = localStorage.getItem('jukebox_coin_key') || 't';
 let oskEnabled = localStorage.getItem('jukebox_osk') !== 'off';
 let freeMode = localStorage.getItem('jukebox_free') === 'on';
+// Hide explicit tracks from search. Defaults ON (family venue) unless a value is saved.
+let hideExplicit = localStorage.getItem('jukebox_hide_explicit') !== 'off';
 let coinKeyLabel = localStorage.getItem('jukebox_coin_key_label') || 'T';
 let settingsTaps = 0, settingsTapTimer = null;
 let searchTimer = null, splitTimer = null;
@@ -1843,7 +1849,7 @@ async function doSearch(q, resultsId, statusId, small) {
       return;
     }
     const d = await r.json();
-    const tracks = (d.tracks?.items || []).filter(t => !isBlacklisted(t));
+    const tracks = (d.tracks?.items || []).filter(t => !isBlacklisted(t) && !(hideExplicit && t.explicit));
     searchCache[cacheKey] = tracks;
     renderSearchResults(tracks, resultsId, statusId, small);
   } catch(e) { logError('E-SRCH-01', String(e)); document.getElementById(statusId).textContent = T[lang].searchError; }
@@ -1937,6 +1943,7 @@ function openSettings() {
   const ckd = document.getElementById('coin-key-display'); if (ckd) ckd.textContent = coinKeyLabel;
   const otb = document.getElementById('osk-toggle-btn'); if (otb) otb.textContent = oskEnabled ? 'On' : 'Off';
   const ftb = document.getElementById('free-toggle-btn'); if (ftb) ftb.textContent = freeMode ? 'On' : 'Off';
+  const etb = document.getElementById('explicit-toggle-btn'); if (etb) etb.textContent = hideExplicit ? 'On' : 'Off';
   renderPlaybackSettings();
   renderKeySettings();
   document.getElementById('cpt-val').textContent = creditsPerTap;
@@ -2019,6 +2026,15 @@ function toggleFreeMode() {
   updateFreeBadge();
   updateAttractText();
   updateCredits();
+}
+
+function toggleHideExplicit() {
+  hideExplicit = !hideExplicit;
+  localStorage.setItem('jukebox_hide_explicit', hideExplicit ? 'on' : 'off');
+  const btn = document.getElementById('explicit-toggle-btn');
+  if (btn) btn.textContent = hideExplicit ? 'On' : 'Off';
+  // Cached results were filtered under the old setting — clear so new searches re-filter.
+  for (const k in searchCache) delete searchCache[k];
 }
 
 // ── PLAYBACK MODE ──
