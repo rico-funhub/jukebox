@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.26.0</p>
+<p class="version-badge">v1.27.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -984,6 +984,14 @@
         <option value="America/Vancouver">Vancouver (Pacific)</option>
         <option value="America/New_York">New York (Eastern)</option>
         <option value="UTC">UTC</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Default language<small>Language the kiosk shows and resets to when idle</small></div>
+      <select id="lang-select" onchange="setDefaultLang(this.value)" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:10px 12px;font-size:13px;color:#fff;font-family:inherit;outline:none;max-width:60%;">
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="es">Español</option>
       </select>
     </div>
     <div class="settings-row">
@@ -1227,7 +1235,15 @@ const T = {
     splitPh: 'Buscar una canción...', queueEmpty: '¡Acerque su tarjeta para agregar\nla siguiente canción!'
   }
 };
-let lang = 'en';
+let defaultLang = localStorage.getItem('jukebox_default_lang') || 'en';
+let lang = defaultLang;
+
+// The language the kiosk falls back to when it returns to attract/idle.
+function setDefaultLang(l) {
+  defaultLang = l;
+  localStorage.setItem('jukebox_default_lang', l);
+  setLang(l);
+}
 
 function setLang(l) {
   lang = l;
@@ -1334,7 +1350,7 @@ function showScreen(id) {
   cb.style.display = (credits > 0 && id !== 'auth') ? 'flex' : 'none';
   updateFreeBadge();
   if (id === 'attract') {
-    credits = 0; setLang('en'); updateAttractText();
+    credits = 0; setLang(defaultLang); updateAttractText();
     hideOsk();
     resetOskState();
     const sp = document.getElementById('split-panel');
@@ -1744,6 +1760,7 @@ function startExternalPoll() {
   pollExternalOnce();
   extSafetyTimer = setInterval(() => {
     if (outOfService || playbackMode !== 'external') return;
+    if (document.hidden) return;
     pollExternalOnce();
   }, 180000);
 }
@@ -2194,15 +2211,24 @@ function openPinOverlay(purpose) {
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').textContent = '';
   const title = document.getElementById('pin-title'); if (title) title.textContent = 'Staff Access';
+  resetPinIdle();
 }
 
-function closePinOverlay() { document.getElementById('pin-overlay').classList.remove('open'); if (pinPurpose === 'setpin') pinPurpose = 'staff'; }
+function closePinOverlay() { document.getElementById('pin-overlay').classList.remove('open'); if (pinIdleTimer) { clearTimeout(pinIdleTimer); pinIdleTimer = null; } if (pinPurpose === 'setpin') pinPurpose = 'staff'; }
+
+// Auto-close the PIN pad after 5s of no input, so it doesn't sit open on the floor.
+let pinIdleTimer = null;
+function resetPinIdle() {
+  if (pinIdleTimer) clearTimeout(pinIdleTimer);
+  pinIdleTimer = setTimeout(() => { closePinOverlay(); }, 5000);
+}
 
 // Touch numpad — the tablet has no physical keyboard, so PIN entry is all on-screen.
 function pinKey(d) {
   const inp = document.getElementById('pin-input');
   if (inp.value.length >= 4) return;
   inp.value += d;
+  resetPinIdle();
   checkPin(inp.value);
 }
 
@@ -2210,6 +2236,7 @@ function pinDel() {
   const inp = document.getElementById('pin-input');
   inp.value = inp.value.slice(0, -1);
   document.getElementById('pin-error').textContent = '';
+  resetPinIdle();
 }
 
 let newPinStage = 'first', newPinFirst = '';
@@ -2254,6 +2281,7 @@ function openSettings() {
   const etb = document.getElementById('explicit-toggle-btn'); if (etb) etb.textContent = hideExplicit ? 'On' : 'Off';
   const fcv = document.getElementById('free-cooldown-val'); if (fcv) fcv.textContent = cooldownLabel(freePlayCooldown);
   const tzs = document.getElementById('tz-select'); if (tzs) tzs.value = timeZone;
+  const lsel = document.getElementById('lang-select'); if (lsel) lsel.value = defaultLang;
   const asb = document.getElementById('autoswitch-btn'); if (asb) asb.textContent = autoSwitch ? 'On' : 'Off';
   const qab = document.getElementById('qr-attract-btn'); if (qab) qab.textContent = qrAttract ? 'On' : 'Off';
   const qob = document.getElementById('qr-only-btn'); if (qob) qob.textContent = qrOnly ? 'On' : 'Off';
@@ -2306,7 +2334,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_free_cooldown','jukebox_qr_url','jukebox_qr_attract','jukebox_qr_playing','jukebox_qr_only','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_default_lang','jukebox_free_cooldown','jukebox_qr_url','jukebox_qr_attract','jukebox_qr_playing','jukebox_qr_only','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
@@ -3474,6 +3502,7 @@ function startKeepAlive() {
   // playing screen (not attract/idle) to keep the call rate modest.
   setInterval(() => {
     if (outOfService) return;
+    if (document.hidden) return;
     if (currentScreen !== 'playing') return;
     if (document.getElementById('split-panel')?.classList.contains('open')) return;
     fetchQueue();
