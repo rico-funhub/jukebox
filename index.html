@@ -282,6 +282,7 @@
     .osk-key.key-hide  { background: #636366; flex: 1.5; font-size: 17px; }
     .osk-key.key-space { background: #3a3a3c; flex: 8.5; font-size: 14px; color: rgba(255,255,255,0.3); }
     .osk-key.key-clear { background: #8b0000; flex: 1.5; font-size: 13px; font-weight: 700; }
+    .osk-key.key-search { background: #1DB954; color: #000; flex: 1.5; font-size: 13px; font-weight: 800; }
 
     /* ── STAFF PANEL ── */
     .staff-overlay {
@@ -729,7 +730,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.16.0</p>
+<p class="version-badge">v1.17.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -2780,14 +2781,12 @@ function buildOsk() {
     });
     row.appendChild(btn);
   };
-  const spacerSm = row => { const s = document.createElement('div'); s.className = 'osk-spacer-sm'; row.appendChild(s); };
 
-  // Row 1: numbers (spacers balance row width with row 2)
+  // Row 1: numbers + clear (clear sits directly above the erase key, right of the 0)
   r1.innerHTML = '';
-  spacerSm(r1);
   ['1','2','3','4','5','6','7','8','9','0'].forEach(k =>
     r1.appendChild(makeKey(k, '', () => oskType(k))));
-  spacerSm(r1);
+  r1.appendChild(makeKey('clear', 'key-clear', () => oskClear()));
 
   // Row 2: QWERTYUIOP + delete
   r2.innerHTML = '';
@@ -2812,11 +2811,11 @@ function buildOsk() {
   shiftR.id = 'osk-shift-r';
   r4.appendChild(shiftR);
 
-  // Row 5: hide + space + clear
+  // Row 5: hide + space + search (search submits the query)
   r5.innerHTML = '';
   r5.appendChild(makeKey('\u2328\u25BE', 'key-hide', () => hideOsk()));
   r5.appendChild(makeKey('space', 'key-space', () => oskType(' ')));
-  r5.appendChild(makeKey('clear', 'key-clear', () => oskClear()));
+  r5.appendChild(makeKey('search', 'key-search', () => oskSubmit()));
 
   updateOskCase();
 
