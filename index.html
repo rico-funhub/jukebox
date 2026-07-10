@@ -779,7 +779,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.43.0</p>
+<p class="version-badge">v1.44.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -2419,7 +2419,8 @@ async function connectHid(fromTap) {
     hidDevice = dev;
     dev.removeEventListener('inputreport', onHidReport); // guard against double-bind
     dev.addEventListener('inputreport', onHidReport);
-    say('USB joystick connected: ' + (dev.productName || 'device') + ' \u2713  Now tap Map on a line and press your button.', '#1DB954');
+    const ids = `USB IDs — vendor ${dev.vendorId}, product ${dev.productId} (for the kiosk auto-allow policy)`;
+    say('USB joystick connected: ' + (dev.productName || 'device') + ' \u2713  ' + ids, '#1DB954');
     updateGamepadStatus();
   } catch (e) {
     say('WebHID error: ' + (e && e.message ? e.message : String(e)), '#ff7a7a');
@@ -3718,6 +3719,10 @@ async function init() {
 
 async function safeInit() {
   try {
+    // Re-open a previously-granted USB joystick as early as possible — independent of
+    // Spotify login, so coins work on the auth/attract screens too. Silent if the grant
+    // persists; no-op if nothing was granted.
+    if ('hid' in navigator) connectHid(false);
     await init();
   } catch(e) {
     showError('Could not start', 'Something went wrong loading the jukebox. Please ask a staff member.');
