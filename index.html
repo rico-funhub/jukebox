@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.37.0</p>
+<p class="version-badge">v1.38.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -2371,8 +2371,26 @@ function updateGamepadStatus() {
 // We don't know the device's report layout, so binding is a LEARN flow: capture the
 // resting report, then the bit that flips on when the coin button is pressed.
 let hidDevice = null;
-let hidLearnBaseline = null;               // { reportId: number[] } resting bytes while learning
+// Two-phase learn: first observe the stick AT REST to find which bits are noisy
+// (analog axes jitter; a joystick's resting report is NOT all zeros), then bind only
+// a clean button bit that was steady-off at rest and turns on when pressed.
+let hidLearn = null; // { phase:'calibrating'|'waiting', reportId, first:[], unstable:[] }
 let hidLineDown = [false, false, false, false, false]; // edge-detect per coin line
+
+function startHidLearn() {
+  hidLearn = { phase: 'calibrating', reportId: null, first: null, unstable: null };
+  const d = document.getElementById('gp-diag');
+  if (d) d.textContent = 'Hold still — reading the joystick at rest (don\u2019t touch it)…';
+  setTimeout(() => {
+    if (hidLearn && hidLearn.phase === 'calibrating') {
+      hidLearn.phase = 'waiting';
+      const d2 = document.getElementById('gp-diag');
+      if (d2) d2.textContent = hidLearn.reportId === null
+        ? 'No data from the joystick yet — press your coin button.'
+        : 'Now press ONLY your coin button.';
+    }
+  }, 1400);
+}
 
 function hidBytes(dv) { const a = []; for (let i = 0; i < dv.byteLength; i++) a.push(dv.getUint8(i)); return a; }
 
@@ -2403,29 +2421,40 @@ function onHidReport(e) {
   const id = e.reportId;
   const bytes = hidBytes(e.data);
 
-  // LEARN: while a coin line is being mapped, find the bit that turns on when pressed.
-  if (mappingLine >= 0) {
-    if (!hidLearnBaseline) hidLearnBaseline = {};
-    if (hidLearnBaseline[id] === undefined) {
-      hidLearnBaseline[id] = bytes;
+  // LEARN (two-phase): ignore bits that move at rest (axes/noise); bind a clean button.
+  if (mappingLine >= 0 && hidLearn) {
+    // Lock onto the first report id we see, and seed the rest snapshot.
+    if (hidLearn.reportId === null) {
+      hidLearn.reportId = id;
+      hidLearn.first = bytes.slice();
+      hidLearn.unstable = bytes.map(() => 0);
+    }
+    if (id !== hidLearn.reportId) return; // ignore this device's other reports
+
+    if (hidLearn.phase === 'calibrating') {
+      // Accumulate every bit that changes while the stick is untouched = noise/axes.
+      for (let i = 0; i < bytes.length; i++) hidLearn.unstable[i] |= (bytes[i] ^ (hidLearn.first[i] || 0));
       const d = document.getElementById('gp-diag');
-      if (d) d.textContent = 'USB joystick ready — press ONLY your coin button now (don\u2019t move the stick).';
+      if (d) d.textContent = 'Hold still — calibrating… ' + bytes.map(x => x.toString(16).padStart(2, '0')).join(' ');
       return;
     }
-    const base = hidLearnBaseline[id];
+
+    // phase 'waiting': a real button = a bit that was steady 0 at rest and is now 1.
     for (let i = 0; i < bytes.length; i++) {
-      const newly = bytes[i] & ~(base[i] || 0); // bits that are 1 now and were 0 at rest
-      if (newly) {
-        const mask = newly & -newly;            // lowest newly-set bit = the button
-        coinLines[mappingLine] = { key: `hid_${id}_${i}_${mask}`, label: 'USB joystick' };
+      const first = hidLearn.first ? (hidLearn.first[i] || 0) : 0;
+      const unstable = hidLearn.unstable ? (hidLearn.unstable[i] || 0) : 0;
+      const candidate = bytes[i] & ~first & ~unstable; // now 1, was 0 at rest, and stable during calibration
+      if (candidate) {
+        const mask = candidate & -candidate; // isolate the lowest qualifying bit
+        coinLines[mappingLine] = { key: `hid_${hidLearn.reportId}_${i}_${mask}`, label: 'USB joystick' };
         saveCoinLines();
-        hidLearnBaseline = null;
+        hidLearn = null;
         finishCoinMapping();
         return;
       }
     }
     const d = document.getElementById('gp-diag');
-    if (d) d.textContent = 'USB report ' + id + ': ' + bytes.map(x => x.toString(16).padStart(2, '0')).join(' ') + '\n(press your coin button)';
+    if (d) d.textContent = 'Press your coin button… ' + bytes.map(x => x.toString(16).padStart(2, '0')).join(' ');
     return;
   }
 
@@ -2894,7 +2923,8 @@ let mapGpInterval = null, mapTimeout = null;
 
 function startCoinMapping(lineIndex) {
   mappingLine = lineIndex;
-  hidLearnBaseline = null; // fresh capture for a WebHID learn, if a stick is connected
+  hidLearn = null;
+  if (hidDevice) startHidLearn(); // WebHID stick present -> use the rest-then-press learn
   renderCoinLines();
   // Detect a gamepad input to bind to this line. Permissive on purpose — cheap arcade
   // encoders report a button as value>0 without pressed=true, or wire the control to an
@@ -2954,11 +2984,12 @@ function startCoinMapping(lineIndex) {
     }
   }, 50);
   // Give up listening after 10s.
-  mapTimeout = setTimeout(() => { if (mappingLine >= 0) finishCoinMapping(); }, 10000);
+  mapTimeout = setTimeout(() => { if (mappingLine >= 0) finishCoinMapping(); }, 15000);
 }
 
 function finishCoinMapping() {
   mappingLine = -1;
+  hidLearn = null;
   if (mapGpInterval) { clearInterval(mapGpInterval); mapGpInterval = null; }
   if (mapTimeout) { clearTimeout(mapTimeout); mapTimeout = null; }
   const d = document.getElementById('gp-diag'); if (d) d.textContent = '';
