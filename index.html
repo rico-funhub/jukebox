@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.38.0</p>
+<p class="version-badge">v1.39.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1126,12 +1126,10 @@ let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
 let creditsPerSong = parseInt(localStorage.getItem('jukebox_cps') || '1');
 let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
 // Up to 5 coin lines (separate physical coin mechanisms), each mapped to its own
-// key or gamepad button. Empty slot = null. Migrate any old single-key binding into line 1.
+// keyboard key, gamepad button, or USB joystick button. Empty slot = null.
 let coinLines = (function() {
   try { const s = JSON.parse(localStorage.getItem('jukebox_coin_lines')); if (Array.isArray(s)) return s.slice(0,5).concat([null,null,null,null,null]).slice(0,5); } catch(e) {}
-  const ok = localStorage.getItem('jukebox_coin_key');
-  const ol = localStorage.getItem('jukebox_coin_key_label');
-  return [ ok ? { key: ok, label: ol || ok.toUpperCase() } : { key: 't', label: 'T' }, null, null, null, null ];
+  return [ { key: 't', label: 'T' }, null, null, null, null ]; // default: keyboard "T" on line 1
 })();
 // Running play/credit count per line (index 0-4).
 let coinCounts = (function() {
@@ -2498,7 +2496,7 @@ async function testConnection() {
 
 // Settings that make sense to move between kiosks / back up. Deliberately excludes
 // session tokens, transient state (oos/closed), cached art, and local revenue data.
-const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_default_lang','jukebox_free_cooldown','jukebox_qr_url','jukebox_qr_attract','jukebox_qr_playing','jukebox_qr_only','jukebox_coin_lines','jukebox_coin_key','jukebox_coin_key_label','jukebox_blacklist'];
+const SETTINGS_KEYS = ['jukebox_key_a','jukebox_key_b','jukebox_active_key','jukebox_autoswitch','jukebox_key_a_name','jukebox_key_b_name','jukebox_playback','jukebox_ext_device_id','jukebox_ext_device_name','jukebox_free','jukebox_hide_explicit','jukebox_cpt','jukebox_cps','jukebox_pin','jukebox_osk','jukebox_tz','jukebox_default_lang','jukebox_free_cooldown','jukebox_qr_url','jukebox_qr_attract','jukebox_qr_playing','jukebox_qr_only','jukebox_coin_lines','jukebox_blacklist'];
 
 function exportSettings() {
   const data = { _jukebox_settings: true, exportedAt: new Date().toISOString() };
