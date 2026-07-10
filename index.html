@@ -779,7 +779,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.42.0</p>
+<p class="version-badge">v1.43.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -1323,6 +1323,8 @@ function openSongPicker() {
   else openSearch();
 }
 
+// Set the attract prompt by mode: free -> 'tap the screen'; paid -> 'tap your card'
+// until credits load, then 'touch to play'. Purely cosmetic (no side effects).
 function updateAttractText() {
   const t = T[lang];
   const tapEl = document.getElementById('attract-tap');
@@ -1343,6 +1345,8 @@ function updateAttractText() {
 }
 
 // ── SCREENS ──
+// Central screen switcher. Enforces the out-of-service lockout — only oos/auth/setup/qr
+// may be shown while the kiosk is locked.
 function showScreen(id) {
   // While out of service, nothing may leave the lockout except the lockout logic
   // itself (which shows 'oos') or a hard reset (which shows 'auth').
@@ -1498,6 +1502,7 @@ async function saveSetupKey() {
   startAuth();
 }
 
+// PKCE step 2: exchange the returned auth code + stored verifier for the first tokens.
 async function exchangeCode(code) {
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1508,6 +1513,7 @@ async function exchangeCode(code) {
   return false;
 }
 
+// Persist access/refresh tokens + expiry so login survives reloads and reboots.
 function saveTokens(d) {
   accessToken = d.access_token;
   if (d.refresh_token) refreshToken = d.refresh_token;
@@ -1521,6 +1527,7 @@ function saveTokens(d) {
   refreshTimer = setTimeout(doRefresh, Math.max((d.expires_in - 180) * 1000, 10000));
 }
 
+// Trade the stored refresh token for a fresh access token (PKCE flow, no client secret).
 async function doRefresh() {
   if (refreshBusy) return;
   refreshBusy = true;
@@ -1547,6 +1554,8 @@ async function doRefresh() {
   finally { refreshBusy = false; }
 }
 
+// Guarantee a usable access token before any API call: keep the current one until it
+// expires, otherwise revive it from the stored refresh token. Returns false if unavailable.
 async function ensureToken() {
   if (!accessToken) {
     // Read durable tokens. Migrate any old sessionStorage values from before the
@@ -1569,6 +1578,9 @@ async function ensureToken() {
 // cooldowns can be hours, so this is what keeps one bad minute from snowballing.
 let rateLimitUntil = 0;
 
+// Central Spotify API wrapper for every call. Skips outright during a rate-limit
+// cooldown, ensures a valid token first, retries once on 401 (token refresh), and
+// on 429 either auto-switches to the other key or drops into out-of-service.
 async function api(url, opts = {}) {
   if (Date.now() < rateLimitUntil) { logError('E-API-429', 'in cooldown, call skipped'); return null; }
   if (!await ensureToken()) { logError('E-AUTH-01'); return null; }
@@ -1775,6 +1787,8 @@ function stopExternalPoll() {
   if (extSafetyTimer) { clearInterval(extSafetyTimer); extSafetyTimer = null; }
 }
 
+// One /me/player read in external mode -> applyExternalState. The only recurring
+// external call, and it runs only while something is actually playing.
 async function pollExternalOnce() {
   if (outOfService || playbackMode !== 'external') return;
   if (!await ensureToken()) return;
@@ -1846,6 +1860,8 @@ function coinSound() {
 // ── SDK ──
 window.onSpotifyWebPlaybackSDKReady = () => initPlayer();
 
+// Boot the Spotify Web Playback SDK for in-app audio, then restore any in-progress
+// playback once it's ready. In external mode the SDK device must NOT grab playback.
 async function initPlayer() {
   if (!await ensureToken()) return;
   if (spotifyPlayer) { try { spotifyPlayer.disconnect(); } catch(e) {} }
@@ -1899,6 +1915,8 @@ async function initPlayer() {
   spotifyPlayer.connect();
 }
 
+// Web Playback SDK event handler (in-app mode). Drives the now-playing screen and
+// refreshes the up-next only on an actual track change (ignores pause/seek events).
 function onState(state) {
   if (playbackMode === 'external') return; // external mode drives UI via poll, not SDK events
   if (!state || !state.track_window?.current_track) {
@@ -1985,6 +2003,9 @@ function afterQueueRefresh() {
   if (playbackMode === 'external') setTimeout(pollExternalOnce, 2600);
 }
 
+// MONEY PATH. Queue/play the chosen track and deduct a credit ONLY after Spotify
+// confirms the add — any failure returns before charging. Free mode spends nothing.
+// After a successful add the picker does NOT open; the attract shows 'touch to play'.
 async function queueTrack(uri, name, artist, art) {
   if (!await ensureToken()) return;
   // External mode with no chosen device: if the in-app SDK player is available
@@ -2158,6 +2179,8 @@ async function doSearch(q, resultsId, statusId, small) {
   } catch(e) { logError('E-SRCH-01', String(e)); document.getElementById(statusId).textContent = T[lang].searchError; }
 }
 
+// Render Spotify search results as tappable rows. The class prefix (search vs split)
+// selects the full-screen vs beside-the-disc layout; onclick queues the track.
 function renderSearchResults(tracks, resultsId, statusId, small) {
   document.getElementById(statusId).textContent = '';
   if (!tracks.length) { document.getElementById(statusId).textContent = T[lang].noResults; return; }
@@ -2359,6 +2382,8 @@ let hidDevice = null;
 let hidLearn = null; // { phase:'calibrating'|'waiting', reportId, first:[], unstable:[] }
 let hidLineDown = [false, false, false, false, false]; // edge-detect per coin line
 
+// Kick off the two-phase learn: ~1.4s reading the stick untouched (to mark axis noise),
+// then wait for a real button press to bind. Prompts are shown in the #gp-diag line.
 function startHidLearn() {
   hidLearn = { phase: 'calibrating', reportId: null, first: null, unstable: null };
   const d = document.getElementById('gp-diag');
@@ -2376,6 +2401,8 @@ function startHidLearn() {
 
 function hidBytes(dv) { const a = []; for (let i = 0; i < dv.byteLength; i++) a.push(dv.getUint8(i)); return a; }
 
+// Open a WebHID joystick (or silently re-open a previously granted one on boot) and
+// listen for its raw input reports. Permission persists per origin, so no re-prompt.
 async function connectHid(fromTap) {
   const el = document.getElementById('hid-support');
   const say = (msg, color) => { if (el) { el.textContent = msg; el.style.color = color; } };
@@ -2399,6 +2426,9 @@ async function connectHid(fromTap) {
   }
 }
 
+// WebHID joystick input. LEARN (two-phase): calibrate the stick at rest to find noisy
+// axis bits, then bind a clean button that was off at rest. LIVE: fire a coin
+// (edge-detected) when a bound bit goes high. See startHidLearn / connectHid.
 function onHidReport(e) {
   const id = e.reportId;
   const bytes = hidBytes(e.data);
@@ -2904,6 +2934,8 @@ function showHelpTab(tab) {
 
 let mapTimeout = null;
 
+// Begin binding an input to a coin line: a connected USB joystick uses the two-phase
+// HID learn (onHidReport); a keyboard key binds via the global keydown handler.
 function startCoinMapping(lineIndex) {
   mappingLine = lineIndex;
   hidLearn = null;
@@ -3021,6 +3053,8 @@ function adjustCoinCredits(i, delta) {
 // server (cache-busted) to read its badge, and compares. If newer, the button becomes
 // "Update now" and force-reloads with a fresh URL param to bypass the browser cache.
 function currentVersion() { return (document.querySelector('.version-badge')?.textContent || '').trim(); }
+// Compare this kiosk's version badge against the live file on GitHub Pages and, if a
+// newer version is out, offer a forced cache-busting reload.
 async function checkForUpdates() {
   const btn = document.getElementById('update-btn');
   const status = document.getElementById('update-status');
@@ -3116,6 +3150,8 @@ function clearIdle() {
   if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
 }
 
+// Search/picker inactivity timeout (IDLE_MS): forfeit any unspent credits and return
+// to attract / now-playing. Reset on every keystroke while picking.
 function idleReturn() {
   clearIdle();
   // Guest walked away — forfeit any unspent credits (session-bound, Option A).
@@ -3137,6 +3173,8 @@ let oskSymbols = false;      // letter layout vs URL/symbol layout
 let oskListenersDone = false; // attach input click handlers only once
 function oskToggleSymbols() { oskSymbols = !oskSymbols; buildOsk(); }
 
+// Build the on-screen keyboard rows (letter layout, or the URL-symbol layout when
+// toggled). Input listeners are wired once via oskListenersDone.
 function buildOsk() {
   const rows = ['osk-r1','osk-r2','osk-r3','osk-r4','osk-r5'].map(id => document.getElementById(id));
   if (rows.some(r => !r)) return;
