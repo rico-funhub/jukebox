@@ -779,7 +779,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.44.0</p>
+<p class="version-badge">v1.45.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -859,10 +859,10 @@
         <button class="s-btn" onclick="resetCoinCounts()" style="padding:0 12px;font-size:12px;">Reset counts</button>
       </div>
       <div id="gp-status" style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;margin:2px 0 8px;background:rgba(192,57,43,0.18);color:#ff7a7a;border:1px solid rgba(192,57,43,0.4);">
-        <span style="font-size:14px;">🕹️</span><span id="gp-status-text">No USB joystick connected</span>
+        <span style="font-size:14px;">🕹️</span><span id="gp-status-text">No coin line board connected</span>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px;">
-        <button class="s-btn" onclick="connectHid(true)" style="padding:0 12px;font-size:12px;">Connect USB joystick</button>
+        <button class="s-btn" onclick="connectHid(true)" style="padding:0 12px;font-size:12px;">Connect coin line board</button>
         <span id="hid-support" style="font-size:11px;color:rgba(255,255,255,0.5);"></span>
       </div>
       <div id="coin-lines" style="width:100%;"></div>
@@ -1124,7 +1124,7 @@ let creditsPerTap = parseInt(localStorage.getItem('jukebox_cpt') || '1');
 let creditsPerSong = parseInt(localStorage.getItem('jukebox_cps') || '1');
 let settingsPin = localStorage.getItem('jukebox_pin') || '1205';
 // Up to 5 coin lines (separate physical coin mechanisms), each mapped to its own
-// keyboard key, gamepad button, or USB joystick button. Empty slot = null.
+// keyboard key or coin line board (USB) button. Empty slot = null.
 let coinLines = (function() {
   try { const s = JSON.parse(localStorage.getItem('jukebox_coin_lines')); if (Array.isArray(s)) return s.slice(0,5).concat([null,null,null,null,null]).slice(0,5); } catch(e) {}
   return [ { key: 't', label: 'T' }, null, null, null, null ]; // default: keyboard "T" on line 1
@@ -2336,14 +2336,14 @@ function openSettings() {
     : '<span style=\"color:rgba(255,255,255,0.25)\">No errors logged</span>';
   document.getElementById('settings-overlay').classList.add('open');
   // Live controller status pill — poll while settings is open so it flips green the
-  // instant the browser sees the stick (the Gamepad API only reveals it after a press).
-  updateGamepadStatus();
-  if (gpStatusInterval) clearInterval(gpStatusInterval);
-  gpStatusInterval = setInterval(updateGamepadStatus, 500);
+  // reflects the coin line board connection the moment it is (re)connected.
+  updateCoinBoardStatus();
+  if (coinBoardStatusInterval) clearInterval(coinBoardStatusInterval);
+  coinBoardStatusInterval = setInterval(updateCoinBoardStatus, 500);
 }
 
-let gpStatusInterval = null;
-function updateGamepadStatus() {
+let coinBoardStatusInterval = null;
+function updateCoinBoardStatus() {
   const pill = document.getElementById('gp-status');
   const txt = document.getElementById('gp-status-text');
   if (!pill || !txt) return;
@@ -2351,16 +2351,16 @@ function updateGamepadStatus() {
   const hid = document.getElementById('hid-support');
   if (hid && !hid.dataset.set) {
     hid.dataset.set = '1';
-    if ('hid' in navigator) { hid.textContent = 'Tap Connect USB joystick, then Map a line and press your button.'; }
+    if ('hid' in navigator) { hid.textContent = 'Tap Connect coin line board, then Map a line and press your button.'; }
     else { hid.textContent = 'WebHID NOT supported on this browser — needs a USB adapter.'; hid.style.color = '#ff7a7a'; }
   }
   if (hidDevice) {
-    txt.textContent = (hidDevice.productName || 'USB joystick').slice(0, 42);
+    txt.textContent = (hidDevice.productName || 'coin line board').slice(0, 42);
     pill.style.background = 'rgba(29,185,84,0.18)';
     pill.style.color = '#1DB954';
     pill.style.borderColor = 'rgba(29,185,84,0.5)';
   } else {
-    txt.textContent = 'No USB joystick connected';
+    txt.textContent = 'No coin line board connected';
     pill.style.background = 'rgba(192,57,43,0.18)';
     pill.style.color = '#ff7a7a';
     pill.style.borderColor = 'rgba(192,57,43,0.4)';
@@ -2370,7 +2370,7 @@ function updateGamepadStatus() {
 // Probe: does this browser support WebHID, and can it see the stick directly?
 // This is how joypad.ai reads a "Generic USB Joystick" that the Gamepad API ignores.
 // Must be called from a tap (the device picker requires a user gesture).
-// ── WEBHID (direct USB joystick) ──
+// ── WEBHID (coin line board) ──
 // Some arcade encoders enumerate as a DirectInput "Joystick", which Chrome's Gamepad
 // API ignores. WebHID reads the raw device instead (this is how joypad.ai sees it).
 // We don't know the device's report layout, so binding is a LEARN flow: capture the
@@ -2420,8 +2420,8 @@ async function connectHid(fromTap) {
     dev.removeEventListener('inputreport', onHidReport); // guard against double-bind
     dev.addEventListener('inputreport', onHidReport);
     const ids = `USB IDs — vendor ${dev.vendorId}, product ${dev.productId} (for the kiosk auto-allow policy)`;
-    say('USB joystick connected: ' + (dev.productName || 'device') + ' \u2713  ' + ids, '#1DB954');
-    updateGamepadStatus();
+    say('Coin line board connected: ' + (dev.productName || 'device') + ' \u2713  ' + ids, '#1DB954');
+    updateCoinBoardStatus();
   } catch (e) {
     say('WebHID error: ' + (e && e.message ? e.message : String(e)), '#ff7a7a');
   }
@@ -2492,7 +2492,7 @@ if ('hid' in navigator) {
 
 function closeSettings() {
   document.getElementById('settings-overlay').classList.remove('open');
-  if (gpStatusInterval) { clearInterval(gpStatusInterval); gpStatusInterval = null; }
+  if (coinBoardStatusInterval) { clearInterval(coinBoardStatusInterval); coinBoardStatusInterval = null; }
 }
 
 // ── TECHNICIAN TOOLS ──
@@ -2935,14 +2935,14 @@ function showHelpTab(tab) {
 
 let mapTimeout = null;
 
-// Begin binding an input to a coin line: a connected USB joystick uses the two-phase
+// Begin binding an input to a coin line: a connected coin line board uses the two-phase
 // HID learn (onHidReport); a keyboard key binds via the global keydown handler.
 function startCoinMapping(lineIndex) {
   mappingLine = lineIndex;
   hidLearn = null;
-  if (hidDevice) startHidLearn(); // USB joystick present -> rest-then-press learn (onHidReport)
+  if (hidDevice) startHidLearn(); // coin line board present -> rest-then-press learn (onHidReport)
   renderCoinLines();
-  // A keyboard key binds via the global keydown handler; a USB joystick binds via onHidReport.
+  // A keyboard key binds via the global keydown handler; a coin line board binds via onHidReport.
   mapTimeout = setTimeout(() => { if (mappingLine >= 0) finishCoinMapping(); }, 15000);
 }
 
@@ -3592,13 +3592,8 @@ function retryFromError() {
 }
 
 // ── KEEP ALIVE ──
-// True only while the mapped gamepad button is held — persists across polls.
-// (getGamepads() returns a fresh snapshot each call, so the flag can't live on
-// the button object or it'd never persist and coins would spam while held.)
-// Per-line "button is currently held" flags for gamepad edge detection (persist
-// across polls; can't live on the transient button object).
 
-// Shared coin action for keyboard + gamepad, with the same staff-overlay guard.
+// Shared coin action for keyboard + coin line board, with the same staff-overlay guard.
 // lineIndex identifies which coin line fired (for per-line counts); -1 if unknown.
 function triggerCoin(lineIndex) {
   if (document.getElementById('pin-overlay').classList.contains('open')) return;
@@ -3719,7 +3714,7 @@ async function init() {
 
 async function safeInit() {
   try {
-    // Re-open a previously-granted USB joystick as early as possible — independent of
+    // Re-open a previously-granted coin line board as early as possible — independent of
     // Spotify login, so coins work on the auth/attract screens too. Silent if the grant
     // persists; no-op if nothing was granted.
     if ('hid' in navigator) connectHid(false);
