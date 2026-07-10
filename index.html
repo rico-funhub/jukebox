@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.40.0</p>
+<p class="version-badge">v1.41.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -861,7 +861,7 @@
         <button class="s-btn" onclick="resetCoinCounts()" style="padding:0 12px;font-size:12px;">Reset counts</button>
       </div>
       <div id="gp-status" style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;margin:2px 0 8px;background:rgba(192,57,43,0.18);color:#ff7a7a;border:1px solid rgba(192,57,43,0.4);">
-        <span style="font-size:14px;">🕹️</span><span id="gp-status-text">No controller yet — press a button on it</span>
+        <span style="font-size:14px;">🕹️</span><span id="gp-status-text">No USB joystick connected</span>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px;">
         <button class="s-btn" onclick="connectHid(true)" style="padding:0 12px;font-size:12px;">Connect USB joystick</button>
@@ -2326,34 +2326,20 @@ function updateGamepadStatus() {
   const pill = document.getElementById('gp-status');
   const txt = document.getElementById('gp-status-text');
   if (!pill || !txt) return;
-  // Initialise the WebHID support hint once (cheap capability probe).
+  // One-time WebHID support hint.
   const hid = document.getElementById('hid-support');
   if (hid && !hid.dataset.set) {
     hid.dataset.set = '1';
-    if ('hid' in navigator) { hid.textContent = 'USB joystick not seen by the Gamepad API? Tap Connect USB joystick.'; }
+    if ('hid' in navigator) { hid.textContent = 'Tap Connect USB joystick, then Map a line and press your button.'; }
     else { hid.textContent = 'WebHID NOT supported on this browser — needs a USB adapter.'; hid.style.color = '#ff7a7a'; }
   }
-  // A WebHID-connected joystick is invisible to the Gamepad API, so report it here first.
   if (hidDevice) {
-    let hn = (hidDevice.productName || 'USB joystick').slice(0, 42);
-    txt.textContent = hn;
-    pill.style.background = 'rgba(29,185,84,0.18)';
-    pill.style.color = '#1DB954';
-    pill.style.borderColor = 'rgba(29,185,84,0.5)';
-    return;
-  }
-  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-  let pad = null;
-  for (const p of pads) { if (p) { pad = p; break; } }
-  if (pad) {
-    let name = (pad.id || 'Controller').replace(/\s*\((?:Vendor|STANDARD|[0-9a-fA-F]{4}).*\)\s*$/, '').trim() || 'Controller';
-    if (name.length > 42) name = name.slice(0, 42) + '…';
-    txt.textContent = name;
+    txt.textContent = (hidDevice.productName || 'USB joystick').slice(0, 42);
     pill.style.background = 'rgba(29,185,84,0.18)';
     pill.style.color = '#1DB954';
     pill.style.borderColor = 'rgba(29,185,84,0.5)';
   } else {
-    txt.textContent = 'No controller yet — press a button on it';
+    txt.textContent = 'No USB joystick connected';
     pill.style.background = 'rgba(192,57,43,0.18)';
     pill.style.color = '#ff7a7a';
     pill.style.borderColor = 'rgba(192,57,43,0.4)';
@@ -2918,78 +2904,20 @@ function showHelpTab(tab) {
 
 
 
-let mapGpInterval = null, mapTimeout = null;
+let mapTimeout = null;
 
 function startCoinMapping(lineIndex) {
   mappingLine = lineIndex;
   hidLearn = null;
-  if (hidDevice) startHidLearn(); // WebHID stick present -> use the rest-then-press learn
+  if (hidDevice) startHidLearn(); // USB joystick present -> rest-then-press learn (onHidReport)
   renderCoinLines();
-  // Detect a gamepad input to bind to this line. Permissive on purpose — cheap arcade
-  // encoders report a button as value>0 without pressed=true, or wire the control to an
-  // axis/hat instead of the buttons array. We accept any of those (like a gamepad tester).
-  let axisBaseline = null; // capture resting axis values so we bind on MOVEMENT, not rest
-  mapGpInterval = setInterval(() => {
-    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-    let seen = null;
-    for (const gp of gamepads) {
-      if (!gp) continue;
-      seen = gp;
-      if (!axisBaseline) axisBaseline = gp.axes.map(a => a);
-      // Buttons: accept pressed OR analog value.
-      for (let idx = 0; idx < gp.buttons.length; idx++) {
-        const b = gp.buttons[idx];
-        if ((b.pressed || b.value > 0.5) && mappingLine >= 0) {
-          coinLines[mappingLine] = { key: `gamepad_${idx}`, label: `Gamepad B${idx}` };
-          saveCoinLines();
-          finishCoinMapping();
-          return;
-        }
-      }
-      // Axes/hats: bind if an axis moved well past its resting value.
-      for (let idx = 0; idx < gp.axes.length; idx++) {
-        const delta = gp.axes[idx] - (axisBaseline[idx] ?? 0);
-        if (Math.abs(delta) > 0.6 && mappingLine >= 0) {
-          const dir = delta > 0 ? 'p' : 'n';
-          coinLines[mappingLine] = { key: `axis_${idx}_${dir}`, label: `Gamepad Axis ${idx}${dir === 'p' ? '+' : '−'}` };
-          saveCoinLines();
-          finishCoinMapping();
-          return;
-        }
-      }
-    }
-    // Live diagnostic — shows exactly what the browser reports, so a stick that
-    // "won't map" can be identified (never appears = not a Gamepad-API device;
-    // shows value-without-pressed or an axis = the permissive detection handles it).
-    // Skip while a WebHID stick is connected — onHidReport owns the readout then.
-    const diag = document.getElementById('gp-diag');
-    if (diag && !hidDevice) {
-      if (!seen) {
-        diag.textContent = 'Controller: none seen yet — press a button on the stick now.';
-      } else {
-        const active = [];
-        for (let i = 0; i < seen.buttons.length; i++) {
-          const b = seen.buttons[i];
-          if (b.pressed || b.value > 0.1) active.push(`B${i}=${b.value.toFixed(2)}${b.pressed ? '*' : ''}`);
-        }
-        for (let i = 0; i < seen.axes.length; i++) {
-          const base = (axisBaseline && axisBaseline[i] != null) ? axisBaseline[i] : 0;
-          if (Math.abs(seen.axes[i] - base) > 0.3) active.push(`axis${i}=${seen.axes[i].toFixed(2)}`);
-        }
-        diag.textContent = 'Controller: ' + (seen.id || 'unknown').slice(0, 44)
-          + '\n(* = reports pressed; no * = value only)'
-          + '\nActive now: ' + (active.join('   ') || 'waiting for a press…');
-      }
-    }
-  }, 50);
-  // Give up listening after 10s.
+  // A keyboard key binds via the global keydown handler; a USB joystick binds via onHidReport.
   mapTimeout = setTimeout(() => { if (mappingLine >= 0) finishCoinMapping(); }, 15000);
 }
 
 function finishCoinMapping() {
   mappingLine = -1;
   hidLearn = null;
-  if (mapGpInterval) { clearInterval(mapGpInterval); mapGpInterval = null; }
   if (mapTimeout) { clearTimeout(mapTimeout); mapTimeout = null; }
   const d = document.getElementById('gp-diag'); if (d) d.textContent = '';
   renderCoinLines();
@@ -3632,7 +3560,6 @@ function retryFromError() {
 // the button object or it'd never persist and coins would spam while held.)
 // Per-line "button is currently held" flags for gamepad edge detection (persist
 // across polls; can't live on the transient button object).
-let gpLineDown = [false, false, false, false, false];
 
 // Shared coin action for keyboard + gamepad, with the same staff-overlay guard.
 // lineIndex identifies which coin line fired (for per-line counts); -1 if unknown.
@@ -3656,39 +3583,12 @@ function triggerCoin(lineIndex) {
   // guest taps the screen to start searching (attractTap / playing-screen tap).
 }
 
-function startGamepadCoinPoll() {
-  setInterval(() => {
-    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-    // Check each coin line that's bound to a gamepad input, independently.
-    for (let li = 0; li < coinLines.length; li++) {
-      const line = coinLines[li];
-      if (!line || !line.key) { gpLineDown[li] = false; continue; }
-      let pressed = false;
-      if (line.key.startsWith('gamepad_')) {
-        const idx = parseInt(line.key.replace('gamepad_', ''));
-        for (const gp of gamepads) {
-          const b = gp && gp.buttons[idx];
-          if (b && (b.pressed || b.value > 0.5)) { pressed = true; break; }
-        }
-      } else if (line.key.startsWith('axis_')) {
-        const parts = line.key.split('_'); const idx = parseInt(parts[1]); const dir = parts[2];
-        for (const gp of gamepads) {
-          const v = gp && gp.axes[idx];
-          if (v !== undefined && v !== null && ((dir === 'p' && v > 0.6) || (dir === 'n' && v < -0.6))) { pressed = true; break; }
-        }
-      } else { gpLineDown[li] = false; continue; }
-      if (pressed && !gpLineDown[li]) { gpLineDown[li] = true; triggerCoin(li); }
-      else if (!pressed) { gpLineDown[li] = false; }
-    }
-  }, 50);
-}
 
 let postAuthDone = false;
 function postAuthSetup() {
   if (postAuthDone) return;
   postAuthDone = true;
   startKeepAlive();
-  startGamepadCoinPoll();
   if ('hid' in navigator) connectHid(false); // silently re-open a previously-granted joystick
   applyOskMode();
   loadAttractArts();
