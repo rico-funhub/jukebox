@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.36.0</p>
+<p class="version-badge">v1.37.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -2417,7 +2417,7 @@ function onHidReport(e) {
       const newly = bytes[i] & ~(base[i] || 0); // bits that are 1 now and were 0 at rest
       if (newly) {
         const mask = newly & -newly;            // lowest newly-set bit = the button
-        coinLines[mappingLine] = { key: `hid_${id}_${i}_${mask}`, label: `USB button (byte ${i} bit ${Math.log2(mask) | 0})` };
+        coinLines[mappingLine] = { key: `hid_${id}_${i}_${mask}`, label: 'USB joystick' };
         saveCoinLines();
         hidLearnBaseline = null;
         finishCoinMapping();
@@ -3615,14 +3615,15 @@ function triggerCoin(lineIndex) {
     coinCounts[lineIndex] = (coinCounts[lineIndex] || 0) + 1;
     saveCoinCounts();
   }
-  if (freeMode) { openSongPicker(); return; }
+  if (freeMode) { updateAttractText(); return; }
   const line = coinLines[lineIndex];
   const gained = (line && line.credits > 0) ? line.credits : creditsPerTap;
   credits += gained;
   updateCredits();
   trackCreditInserted();
   updateAttractText();
-  openSongPicker();
+  // Don't open the picker on coin-in. The attract now shows "touch to play" — the
+  // guest taps the screen to start searching (attractTap / playing-screen tap).
 }
 
 function startGamepadCoinPoll() {
