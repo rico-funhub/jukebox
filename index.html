@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.34.0</p>
+<p class="version-badge">v1.35.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -862,6 +862,10 @@
       </div>
       <div id="gp-status" style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;margin:2px 0 8px;background:rgba(192,57,43,0.18);color:#ff7a7a;border:1px solid rgba(192,57,43,0.4);">
         <span style="font-size:14px;">🕹️</span><span id="gp-status-text">No controller yet — press a button on it</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px;">
+        <button class="s-btn" onclick="testWebHID()" style="padding:0 12px;font-size:12px;">Test USB direct</button>
+        <span id="hid-support" style="font-size:11px;color:rgba(255,255,255,0.5);"></span>
       </div>
       <div id="coin-lines" style="width:100%;"></div>
       <div id="gp-diag" style="width:100%;font-size:11px;color:rgba(255,255,255,0.55);margin-top:8px;font-family:monospace;white-space:pre-wrap;line-height:1.5;"></div>
@@ -2324,6 +2328,13 @@ function updateGamepadStatus() {
   const pill = document.getElementById('gp-status');
   const txt = document.getElementById('gp-status-text');
   if (!pill || !txt) return;
+  // Initialise the WebHID support hint once (cheap capability probe).
+  const hid = document.getElementById('hid-support');
+  if (hid && !hid.dataset.set) {
+    hid.dataset.set = '1';
+    if ('hid' in navigator) { hid.textContent = 'WebHID supported — tap to read the stick directly'; }
+    else { hid.textContent = 'WebHID NOT supported on this browser — needs a USB adapter'; hid.style.color = '#ff7a7a'; }
+  }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   let pad = null;
   for (const p of pads) { if (p) { pad = p; break; } }
@@ -2339,6 +2350,35 @@ function updateGamepadStatus() {
     pill.style.background = 'rgba(192,57,43,0.18)';
     pill.style.color = '#ff7a7a';
     pill.style.borderColor = 'rgba(192,57,43,0.4)';
+  }
+}
+
+// Probe: does this browser support WebHID, and can it see the stick directly?
+// This is how joypad.ai reads a "Generic USB Joystick" that the Gamepad API ignores.
+// Must be called from a tap (the device picker requires a user gesture).
+async function testWebHID() {
+  const el = document.getElementById('hid-support');
+  if (!el) return;
+  if (!('hid' in navigator)) {
+    el.textContent = 'WebHID NOT supported on this browser — the software path is out; needs a USB adapter.';
+    el.style.color = '#ff7a7a';
+    return;
+  }
+  el.textContent = 'Opening device picker… pick your joystick.';
+  el.style.color = 'rgba(255,255,255,0.6)';
+  try {
+    const devices = await navigator.hid.requestDevice({ filters: [] });
+    if (!devices || !devices.length) {
+      el.textContent = 'Picker closed with nothing selected. Tap again and choose the joystick.';
+      el.style.color = '#ffcf70';
+      return;
+    }
+    const names = devices.map(d => d.productName || 'Unnamed HID device').join(', ');
+    el.textContent = 'WebHID can read: ' + names + ' ✓ — the software path will work.';
+    el.style.color = '#1DB954';
+  } catch (e) {
+    el.textContent = 'WebHID error: ' + (e && e.message ? e.message : String(e));
+    el.style.color = '#ff7a7a';
   }
 }
 
