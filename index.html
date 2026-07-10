@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.35.0</p>
+<p class="version-badge">v1.36.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -864,7 +864,7 @@
         <span style="font-size:14px;">🕹️</span><span id="gp-status-text">No controller yet — press a button on it</span>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px;">
-        <button class="s-btn" onclick="testWebHID()" style="padding:0 12px;font-size:12px;">Test USB direct</button>
+        <button class="s-btn" onclick="connectHid(true)" style="padding:0 12px;font-size:12px;">Connect USB joystick</button>
         <span id="hid-support" style="font-size:11px;color:rgba(255,255,255,0.5);"></span>
       </div>
       <div id="coin-lines" style="width:100%;"></div>
@@ -2332,8 +2332,17 @@ function updateGamepadStatus() {
   const hid = document.getElementById('hid-support');
   if (hid && !hid.dataset.set) {
     hid.dataset.set = '1';
-    if ('hid' in navigator) { hid.textContent = 'WebHID supported — tap to read the stick directly'; }
-    else { hid.textContent = 'WebHID NOT supported on this browser — needs a USB adapter'; hid.style.color = '#ff7a7a'; }
+    if ('hid' in navigator) { hid.textContent = 'USB joystick not seen by the Gamepad API? Tap Connect USB joystick.'; }
+    else { hid.textContent = 'WebHID NOT supported on this browser — needs a USB adapter.'; hid.style.color = '#ff7a7a'; }
+  }
+  // A WebHID-connected joystick is invisible to the Gamepad API, so report it here first.
+  if (hidDevice) {
+    let hn = (hidDevice.productName || 'USB joystick').slice(0, 42);
+    txt.textContent = hn;
+    pill.style.background = 'rgba(29,185,84,0.18)';
+    pill.style.color = '#1DB954';
+    pill.style.borderColor = 'rgba(29,185,84,0.5)';
+    return;
   }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   let pad = null;
@@ -2356,30 +2365,86 @@ function updateGamepadStatus() {
 // Probe: does this browser support WebHID, and can it see the stick directly?
 // This is how joypad.ai reads a "Generic USB Joystick" that the Gamepad API ignores.
 // Must be called from a tap (the device picker requires a user gesture).
-async function testWebHID() {
+// ── WEBHID (direct USB joystick) ──
+// Some arcade encoders enumerate as a DirectInput "Joystick", which Chrome's Gamepad
+// API ignores. WebHID reads the raw device instead (this is how joypad.ai sees it).
+// We don't know the device's report layout, so binding is a LEARN flow: capture the
+// resting report, then the bit that flips on when the coin button is pressed.
+let hidDevice = null;
+let hidLearnBaseline = null;               // { reportId: number[] } resting bytes while learning
+let hidLineDown = [false, false, false, false, false]; // edge-detect per coin line
+
+function hidBytes(dv) { const a = []; for (let i = 0; i < dv.byteLength; i++) a.push(dv.getUint8(i)); return a; }
+
+async function connectHid(fromTap) {
   const el = document.getElementById('hid-support');
-  if (!el) return;
-  if (!('hid' in navigator)) {
-    el.textContent = 'WebHID NOT supported on this browser — the software path is out; needs a USB adapter.';
-    el.style.color = '#ff7a7a';
-    return;
-  }
-  el.textContent = 'Opening device picker… pick your joystick.';
-  el.style.color = 'rgba(255,255,255,0.6)';
+  const say = (msg, color) => { if (el) { el.textContent = msg; el.style.color = color; } };
+  if (!('hid' in navigator)) { say('WebHID NOT supported on this browser — needs a USB adapter.', '#ff7a7a'); return; }
   try {
-    const devices = await navigator.hid.requestDevice({ filters: [] });
-    if (!devices || !devices.length) {
-      el.textContent = 'Picker closed with nothing selected. Tap again and choose the joystick.';
-      el.style.color = '#ffcf70';
+    let devices = await navigator.hid.getDevices();
+    let dev = devices && devices[0];
+    if (!dev && fromTap) {
+      const picked = await navigator.hid.requestDevice({ filters: [] });
+      dev = picked && picked[0];
+    }
+    if (!dev) { if (fromTap) say('No device selected. Tap again and pick the joystick.', '#ffcf70'); return; }
+    if (!dev.opened) await dev.open();
+    hidDevice = dev;
+    dev.removeEventListener('inputreport', onHidReport); // guard against double-bind
+    dev.addEventListener('inputreport', onHidReport);
+    say('USB joystick connected: ' + (dev.productName || 'device') + ' \u2713  Now tap Map on a line and press your button.', '#1DB954');
+    updateGamepadStatus();
+  } catch (e) {
+    say('WebHID error: ' + (e && e.message ? e.message : String(e)), '#ff7a7a');
+  }
+}
+
+function onHidReport(e) {
+  const id = e.reportId;
+  const bytes = hidBytes(e.data);
+
+  // LEARN: while a coin line is being mapped, find the bit that turns on when pressed.
+  if (mappingLine >= 0) {
+    if (!hidLearnBaseline) hidLearnBaseline = {};
+    if (hidLearnBaseline[id] === undefined) {
+      hidLearnBaseline[id] = bytes;
+      const d = document.getElementById('gp-diag');
+      if (d) d.textContent = 'USB joystick ready — press ONLY your coin button now (don\u2019t move the stick).';
       return;
     }
-    const names = devices.map(d => d.productName || 'Unnamed HID device').join(', ');
-    el.textContent = 'WebHID can read: ' + names + ' ✓ — the software path will work.';
-    el.style.color = '#1DB954';
-  } catch (e) {
-    el.textContent = 'WebHID error: ' + (e && e.message ? e.message : String(e));
-    el.style.color = '#ff7a7a';
+    const base = hidLearnBaseline[id];
+    for (let i = 0; i < bytes.length; i++) {
+      const newly = bytes[i] & ~(base[i] || 0); // bits that are 1 now and were 0 at rest
+      if (newly) {
+        const mask = newly & -newly;            // lowest newly-set bit = the button
+        coinLines[mappingLine] = { key: `hid_${id}_${i}_${mask}`, label: `USB button (byte ${i} bit ${Math.log2(mask) | 0})` };
+        saveCoinLines();
+        hidLearnBaseline = null;
+        finishCoinMapping();
+        return;
+      }
+    }
+    const d = document.getElementById('gp-diag');
+    if (d) d.textContent = 'USB report ' + id + ': ' + bytes.map(x => x.toString(16).padStart(2, '0')).join(' ') + '\n(press your coin button)';
+    return;
   }
+
+  // LIVE: fire a coin when a bound bit goes high (edge-detected).
+  for (let li = 0; li < coinLines.length; li++) {
+    const line = coinLines[li];
+    if (!line || !line.key || line.key.slice(0, 4) !== 'hid_') continue;
+    const p = line.key.split('_'); // ['hid', reportId, byteIndex, mask]
+    if (parseInt(p[1]) !== id) continue;
+    const pressed = ((bytes[parseInt(p[2])] || 0) & parseInt(p[3])) !== 0;
+    if (pressed && !hidLineDown[li]) { hidLineDown[li] = true; triggerCoin(li); }
+    else if (!pressed) hidLineDown[li] = false;
+  }
+}
+
+// Re-attach automatically if the stick is unplugged/replugged (permission persists).
+if ('hid' in navigator) {
+  navigator.hid.addEventListener('connect', () => { if (!hidDevice) connectHid(false); });
+  navigator.hid.addEventListener('disconnect', (e) => { if (hidDevice && e.device === hidDevice) hidDevice = null; });
 }
 
 function closeSettings() {
@@ -2829,6 +2894,7 @@ let mapGpInterval = null, mapTimeout = null;
 
 function startCoinMapping(lineIndex) {
   mappingLine = lineIndex;
+  hidLearnBaseline = null; // fresh capture for a WebHID learn, if a stick is connected
   renderCoinLines();
   // Detect a gamepad input to bind to this line. Permissive on purpose — cheap arcade
   // encoders report a button as value>0 without pressed=true, or wire the control to an
@@ -2866,8 +2932,9 @@ function startCoinMapping(lineIndex) {
     // Live diagnostic — shows exactly what the browser reports, so a stick that
     // "won't map" can be identified (never appears = not a Gamepad-API device;
     // shows value-without-pressed or an axis = the permissive detection handles it).
+    // Skip while a WebHID stick is connected — onHidReport owns the readout then.
     const diag = document.getElementById('gp-diag');
-    if (diag) {
+    if (diag && !hidDevice) {
       if (!seen) {
         diag.textContent = 'Controller: none seen yet — press a button on the stick now.';
       } else {
@@ -3591,6 +3658,7 @@ function postAuthSetup() {
   postAuthDone = true;
   startKeepAlive();
   startGamepadCoinPoll();
+  if ('hid' in navigator) connectHid(false); // silently re-open a previously-granted joystick
   applyOskMode();
   loadAttractArts();
   fetchAccount();
