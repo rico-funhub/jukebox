@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.32.0</p>
+<p class="version-badge">v1.33.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -861,6 +861,7 @@
         <button class="s-btn" onclick="resetCoinCounts()" style="padding:0 12px;font-size:12px;">Reset counts</button>
       </div>
       <div id="coin-lines" style="width:100%;"></div>
+      <div id="gp-diag" style="width:100%;font-size:11px;color:rgba(255,255,255,0.55);margin-top:8px;font-family:monospace;white-space:pre-wrap;line-height:1.5;"></div>
     </div>
 
     <div class="s-sec">Music</div>
@@ -2755,18 +2756,59 @@ let mapGpInterval = null, mapTimeout = null;
 function startCoinMapping(lineIndex) {
   mappingLine = lineIndex;
   renderCoinLines();
-  // Detect a gamepad button press to bind to this line.
+  // Detect a gamepad input to bind to this line. Permissive on purpose — cheap arcade
+  // encoders report a button as value>0 without pressed=true, or wire the control to an
+  // axis/hat instead of the buttons array. We accept any of those (like a gamepad tester).
+  let axisBaseline = null; // capture resting axis values so we bind on MOVEMENT, not rest
   mapGpInterval = setInterval(() => {
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let seen = null;
     for (const gp of gamepads) {
       if (!gp) continue;
+      seen = gp;
+      if (!axisBaseline) axisBaseline = gp.axes.map(a => a);
+      // Buttons: accept pressed OR analog value.
       for (let idx = 0; idx < gp.buttons.length; idx++) {
-        if (gp.buttons[idx].pressed && mappingLine >= 0) {
+        const b = gp.buttons[idx];
+        if ((b.pressed || b.value > 0.5) && mappingLine >= 0) {
           coinLines[mappingLine] = { key: `gamepad_${idx}`, label: `Gamepad B${idx}` };
           saveCoinLines();
           finishCoinMapping();
           return;
         }
+      }
+      // Axes/hats: bind if an axis moved well past its resting value.
+      for (let idx = 0; idx < gp.axes.length; idx++) {
+        const delta = gp.axes[idx] - (axisBaseline[idx] ?? 0);
+        if (Math.abs(delta) > 0.6 && mappingLine >= 0) {
+          const dir = delta > 0 ? 'p' : 'n';
+          coinLines[mappingLine] = { key: `axis_${idx}_${dir}`, label: `Gamepad Axis ${idx}${dir === 'p' ? '+' : '−'}` };
+          saveCoinLines();
+          finishCoinMapping();
+          return;
+        }
+      }
+    }
+    // Live diagnostic — shows exactly what the browser reports, so a stick that
+    // "won't map" can be identified (never appears = not a Gamepad-API device;
+    // shows value-without-pressed or an axis = the permissive detection handles it).
+    const diag = document.getElementById('gp-diag');
+    if (diag) {
+      if (!seen) {
+        diag.textContent = 'Controller: none seen yet — press a button on the stick now.';
+      } else {
+        const active = [];
+        for (let i = 0; i < seen.buttons.length; i++) {
+          const b = seen.buttons[i];
+          if (b.pressed || b.value > 0.1) active.push(`B${i}=${b.value.toFixed(2)}${b.pressed ? '*' : ''}`);
+        }
+        for (let i = 0; i < seen.axes.length; i++) {
+          const base = (axisBaseline && axisBaseline[i] != null) ? axisBaseline[i] : 0;
+          if (Math.abs(seen.axes[i] - base) > 0.3) active.push(`axis${i}=${seen.axes[i].toFixed(2)}`);
+        }
+        diag.textContent = 'Controller: ' + (seen.id || 'unknown').slice(0, 44)
+          + '\n(* = reports pressed; no * = value only)'
+          + '\nActive now: ' + (active.join('   ') || 'waiting for a press…');
       }
     }
   }, 50);
@@ -2778,6 +2820,7 @@ function finishCoinMapping() {
   mappingLine = -1;
   if (mapGpInterval) { clearInterval(mapGpInterval); mapGpInterval = null; }
   if (mapTimeout) { clearTimeout(mapTimeout); mapTimeout = null; }
+  const d = document.getElementById('gp-diag'); if (d) d.textContent = '';
   renderCoinLines();
 }
 
@@ -3444,15 +3487,24 @@ function triggerCoin(lineIndex) {
 function startGamepadCoinPoll() {
   setInterval(() => {
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-    // Check each coin line that's bound to a gamepad button, independently.
+    // Check each coin line that's bound to a gamepad input, independently.
     for (let li = 0; li < coinLines.length; li++) {
       const line = coinLines[li];
-      if (!line || !line.key.startsWith('gamepad_')) { gpLineDown[li] = false; continue; }
-      const idx = parseInt(line.key.replace('gamepad_', ''));
+      if (!line || !line.key) { gpLineDown[li] = false; continue; }
       let pressed = false;
-      for (const gp of gamepads) {
-        if (gp && gp.buttons[idx] && gp.buttons[idx].pressed) { pressed = true; break; }
-      }
+      if (line.key.startsWith('gamepad_')) {
+        const idx = parseInt(line.key.replace('gamepad_', ''));
+        for (const gp of gamepads) {
+          const b = gp && gp.buttons[idx];
+          if (b && (b.pressed || b.value > 0.5)) { pressed = true; break; }
+        }
+      } else if (line.key.startsWith('axis_')) {
+        const parts = line.key.split('_'); const idx = parseInt(parts[1]); const dir = parts[2];
+        for (const gp of gamepads) {
+          const v = gp && gp.axes[idx];
+          if (v !== undefined && v !== null && ((dir === 'p' && v > 0.6) || (dir === 'n' && v < -0.6))) { pressed = true; break; }
+        }
+      } else { gpLineDown[li] = false; continue; }
       if (pressed && !gpLineDown[li]) { gpLineDown[li] = true; triggerCoin(li); }
       else if (!pressed) { gpLineDown[li] = false; }
     }
