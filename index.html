@@ -781,7 +781,7 @@
 
 <!-- AUDIO -->
 <p class="audio-badge" id="audio-badge">● Audio ready</p>
-<p class="version-badge">v1.39.0</p>
+<p class="version-badge">v1.40.0</p>
 
 <!-- SETTINGS TAP ZONE -->
 <div class="settings-tap-zone" id="settings-tap-zone" onclick="handleSettingsTap()"></div>
@@ -2444,7 +2444,8 @@ function onHidReport(e) {
       const candidate = bytes[i] & ~first & ~unstable; // now 1, was 0 at rest, and stable during calibration
       if (candidate) {
         const mask = candidate & -candidate; // isolate the lowest qualifying bit
-        coinLines[mappingLine] = { key: `hid_${hidLearn.reportId}_${i}_${mask}`, label: 'USB joystick' };
+        const btnNum = i * 8 + (Math.log2(mask) | 0); // stable, unique per physical button
+        coinLines[mappingLine] = { key: `hid_${hidLearn.reportId}_${i}_${mask}`, label: `USB button ${btnNum}` };
         saveCoinLines();
         hidLearn = null;
         finishCoinMapping();
